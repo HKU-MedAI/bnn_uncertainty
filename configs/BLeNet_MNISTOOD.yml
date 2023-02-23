@@ -1,0 +1,45 @@
+#### general settings
+name: BPN
+train_type: bnn-uncertainty
+eval_type: bnn
+gpu_ids: [2]
+
+
+#### datasets
+dataset:
+  name: "BDLB"
+  image_size: 256
+  train_path: None
+
+#### Checkpoint settings
+checkpoints:
+  path: "./checkpoints/BLeNet_MNISTOOD/"
+  save_checkpoint_freq: 2
+
+
+#### Optimizer settings
+optimizer:
+  opt_method: "ADAM"
+  lr: 0.0005  # Learning rate
+  weight_decay: 0.001
+
+#### training settings: learning rate scheme, loss, optimizer
+train:
+  model_name: "BLeNet"
+
+  num_epochs: 1000
+  batch_size: 128
+  train_size: 1
+
+  n_samples: 10
+
+  beta: 0.0001
+  prior_mu: 0
+  prior_sigma: 0.01
+  posterior_mu_initial: [0, 0.05]
+  posterior_rho_initial: [-3, 0.01]
+
+  in_channels: 1
+  out_channels: 11
+
+  loss: "ELBO"
