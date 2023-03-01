@@ -11,7 +11,16 @@ from layers import (
 class BBBLeNet(nn.Module):
     '''The architecture of LeNet with Bayesian Layers'''
 
-    def __init__(self, outputs, inputs, priors, image_size=32, activation_type='softplus'):
+    def __init__(self, outputs, inputs, priors, image_size=32, activation_type='softplus', de=False):
+        """
+
+        :param outputs:
+        :param inputs:
+        :param priors:
+        :param image_size:
+        :param activation_type:
+        :param de: Whether apply deep ensembles or not
+        """
         super(BBBLeNet, self).__init__()
 
         self.num_classes = outputs
@@ -43,6 +52,9 @@ class BBBLeNet(nn.Module):
 
         self.fc3 = BBBLinear(84, outputs, bias=True, priors=self.priors)
 
+        if de:
+            self.fc_sig = BBBLinear(84, outputs, bias=True, priors=self.priors)
+
     def forward(self, x):
 
         x = self.conv1(x)
@@ -63,6 +75,9 @@ class BBBLeNet(nn.Module):
         x = self.fc3(x)
 
         return x
+
+    def de_forward(self):
+        pass
 
     def kl_loss(self):
         # Compute KL divergences

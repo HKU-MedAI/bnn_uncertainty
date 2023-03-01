@@ -24,7 +24,7 @@ class BBBResNet(nn.Module):
         else:
             raise ValueError("Only softplus or relu supported")
 
-        model = resnet18(pretrained=True)
+        model = resnet18(pretrained=True).cuda()
 
         model.conv1 = self.freq_to_bayes(model.conv1, "conv")
         model.layer1[0].conv1 = self.freq_to_bayes(model.layer1[0].conv1, "conv")
@@ -59,12 +59,16 @@ class BBBResNet(nn.Module):
         emb = self.model(x)
         out = self.out(emb)
 
-        kl = 0
-        for module in self.modules():
+        return out
+
+    def kl_loss(self):
+        # Compute KL divergences
+        kl = 0.0
+        for module in self.children():
             if hasattr(module, 'kl_loss'):
                 kl = kl + module.kl_loss()
 
-        return out, kl, emb
+        return kl
 
     def inference(self, x):
         maps = []

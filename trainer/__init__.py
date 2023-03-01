@@ -7,6 +7,8 @@ from .uncertainty_bnn import BNNUncertaintyTrainer
 from .arht_bnn import BNNARHTTrainer
 from .train_edl import EDLTrainer
 from .train_dpn import DPNTrainer
+from .train_ensembles import DeepEnsemblesTrainer
+from .train_what_uncertainties import WhatUncertaintiesTrainer
 
 __all__ = [
     'Trainer',

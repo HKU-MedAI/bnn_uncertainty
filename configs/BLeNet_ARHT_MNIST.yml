@@ -7,9 +7,9 @@ gpu_ids: [2]
 
 #### datasets
 dataset:
-  name: "BDLB"
-  image_size: 256
-  train_path: None
+  image_size: 32
+  in: "MNIST"
+  ood: "FashionMNIST"
 
 #### Checkpoint settings
 checkpoints:
@@ -28,7 +28,7 @@ train:
   model_name: "BLeNet"
 
   num_epochs: 100
-  batch_size: 128
+  batch_size: 200
   train_size: 1
 
   n_normal_samples: 5
@@ -39,6 +39,8 @@ train:
   prior_sigma: 0.01
   posterior_mu_initial: [0, 0.05]
   posterior_rho_initial: [-3, 0.01]
+
+  init_lambda: 0.001
 
   in_channels: 1
   out_channels: 10

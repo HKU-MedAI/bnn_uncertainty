@@ -32,27 +32,25 @@ class BNNARHTTrainer(Trainer):
 
         in_data_name = self.config_data["in"]
         ood_data_name = self.config_data["ood"]
+        image_size = self.config_data["image_size"]
 
-        train_in = load_data(in_data_name, True, self.batch_size)
-        test_in = load_data(in_data_name, False, self.batch_size)
-        train_out = load_data(ood_data_name, True, self.batch_size)
-        test_out = load_data(ood_data_name, False, self.batch_size)
+        train_in = load_data(in_data_name, True, image_size)
+        test_in = load_data(in_data_name, False, image_size)
+        train_out = load_data(ood_data_name, True, image_size)
+        test_out = load_data(ood_data_name, False, image_size)
 
-
-        train_out.targets = torch.tensor(np.ones(len(train_out.targets)) * 10, dtype=torch.long)
-
-        train_all = load_data("MNIST", True, self.batch_size)
-        train_all.data = torch.cat((train_in.data, train_out.data))
-        train_all.targets = torch.cat((train_in.targets, train_out.targets))
+        # train_all = load_data("MNIST", True, self.batch_size)
+        # train_all.data = torch.cat((train_in.data, train_out.data))
+        # train_all.targets = torch.cat((train_in.targets, train_out.targets))
 
         self.train_in_loader = DataLoader(train_in, batch_size=self.batch_size, shuffle=True)
-        self.train_all_loader = DataLoader(train_all, batch_size=self.batch_size, shuffle=True)
+        # self.train_all_loader = DataLoader(train_all, batch_size=self.batch_size, shuffle=True)
         self.test_in_loader = DataLoader(test_in, batch_size=self.batch_size, shuffle=True)
         self.test_out_loader = DataLoader(test_out, batch_size=self.batch_size, shuffle=True)
 
         self.n_noraml_samples = self.config_train["n_normal_samples"]
         self.n_test_samples = self.config_train["n_testing_samples"]
-        self.model = parse_bayesian_model(self.config_train, image_size=28)
+        self.model = parse_bayesian_model(self.config_train, image_size=image_size)
         self.optimzer = parse_optimizer(self.config_optim, self.model.parameters())
 
         self.loss_fcn = parse_loss(self.config_train)
@@ -131,7 +129,8 @@ class BNNARHTTrainer(Trainer):
         test_mu = scores.mean(0)
         test_cov = np.einsum("ikj, ikl -> kjl", scores, scores)
 
-        lambdas = [0.001, 0.005, 0.01]
+        lamb = self.config_train["init_lambda"]
+        lambdas = [lamb, lamb * 5, lamb * 10]
         n_2 = scores.shape[0]
         n = n_1 + n_2
         p = cov_normal.shape[0]

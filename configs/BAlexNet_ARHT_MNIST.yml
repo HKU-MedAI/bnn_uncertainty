@@ -7,14 +7,13 @@ gpu_ids: [2]
 
 #### datasets
 dataset:
-  name: "BDLB"
   image_size: 32
-  in: "CIFAR10"
-  ood: "Omiglot"
+  in: "MNIST"
+  ood: "FashionMNIST"
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/BLeNet_ARHT_C10_OM/"
+  path: "./checkpoints/BAlex_ARHT_MNIST/"
   save_checkpoint_freq: 2
 
 
@@ -26,10 +25,10 @@ optimizer:
 
 #### training settings: learning rate scheme, loss, optimizer
 train:
-  model_name: "BLeNet"
+  model_name: "BAlexNet"
 
   num_epochs: 100
-  batch_size: 128
+  batch_size: 200
   train_size: 1
 
   n_normal_samples: 5
@@ -41,7 +40,9 @@ train:
   posterior_mu_initial: [0, 0.05]
   posterior_rho_initial: [-3, 0.01]
 
-  in_channels: 3
+  init_lambda: 0.001
+
+  in_channels: 1
   out_channels: 10
 
   loss: "ELBO"

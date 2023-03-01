@@ -7,8 +7,9 @@ gpu_ids: [2]
 
 #### datasets
 dataset:
-  name: "BDLB"
-  image_size: 256
+  image_size: 32
+  in: "CIFAR10"
+  ood: "Omiglot"
 
 #### Checkpoint settings
 checkpoints:

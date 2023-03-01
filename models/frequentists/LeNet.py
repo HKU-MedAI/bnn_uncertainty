@@ -9,10 +9,11 @@ from layers import (
 class LeNet(nn.Module):
     '''The architecture of LeNet with Bayesian Layers'''
 
-    def __init__(self, outputs, inputs, image_size=32, activation_type='softplus'):
+    def __init__(self, outputs, inputs, image_size=32, activation_type='softplus', de=False):
         super(LeNet, self).__init__()
 
         self.num_classes = outputs
+        self.is_de = de
 
         if activation_type == 'softplus':
             self.act = nn.Softplus
@@ -40,6 +41,9 @@ class LeNet(nn.Module):
 
         self.fc3 = nn.Linear(84, outputs, bias=True)
 
+        if self.is_de:
+            self.fc_sig = nn.Linear(84, outputs, bias=True)
+
     def forward(self, x):
         x = self.conv1(x)
         x = self.act1(x)
@@ -56,9 +60,13 @@ class LeNet(nn.Module):
         x = self.fc2(x)
         x = self.act4(x)
 
-        x = self.fc3(x)
+        out = self.fc3(x)
 
-        return x
+        if self.is_de:
+            out_sig = self.fc_sig(x)
+            return out, out_sig
+
+        return out
 
     def mc_dropout(self, x, p):
         x = self.conv1(x)

@@ -1,20 +1,19 @@
 #### general settings
 name: BPN
-train_type: arht-uncertainty
+train_type: edl
 eval_type: bnn
 gpu_ids: [2]
 
 
 #### datasets
 dataset:
-  name: "BDLB"
   image_size: 32
   in: "CIFAR10"
   ood: "Omiglot"
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/BLeNet_ARHT_C10_OM/"
+  path: "./checkpoints/LeNet_EDL_CIFAR10_Omiglot/"
   save_checkpoint_freq: 2
 
 
@@ -26,20 +25,11 @@ optimizer:
 
 #### training settings: learning rate scheme, loss, optimizer
 train:
-  model_name: "BLeNet"
+  model_name: "LeNet"
 
-  num_epochs: 100
+  num_epochs: 1000
   batch_size: 128
   train_size: 1
-
-  n_normal_samples: 5
-  n_testing_samples: 200
-
-  beta: 0.0001
-  prior_mu: 0
-  prior_sigma: 0.01
-  posterior_mu_initial: [0, 0.05]
-  posterior_rho_initial: [-3, 0.01]
 
   in_channels: 3
   out_channels: 10

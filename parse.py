@@ -158,6 +158,12 @@ def parse_frequentist_model(config_freq, image_size=32):
     out_dim = config_freq["out_channels"]
     model_name = config_freq["model_name"]
 
+    # Check deep ensembles
+    try:
+        is_de = config_freq["is_de"]
+    except KeyError:
+        is_de = False
+
     if model_name == "EfficientNet":
         return EfficientNetB4(
             inputs=in_dim,
@@ -172,7 +178,8 @@ def parse_frequentist_model(config_freq, image_size=32):
         return LeNet(
             outputs=out_dim,
             inputs=in_dim,
-            image_size=image_size
+            image_size=image_size,
+            de=is_de
         )
     elif model_name == "ResNet":
         return ResNet(

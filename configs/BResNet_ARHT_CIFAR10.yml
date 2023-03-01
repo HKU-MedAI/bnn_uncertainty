@@ -7,14 +7,13 @@ gpu_ids: [2]
 
 #### datasets
 dataset:
-  name: "BDLB"
   image_size: 32
   in: "CIFAR10"
   ood: "Omiglot"
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/BLeNet_ARHT_C10_OM/"
+  path: "./checkpoints/BResNet_ARHT_CIFAR10_OMIGLOT/"
   save_checkpoint_freq: 2
 
 
@@ -26,7 +25,7 @@ optimizer:
 
 #### training settings: learning rate scheme, loss, optimizer
 train:
-  model_name: "BLeNet"
+  model_name: "BResNet"
 
   num_epochs: 100
   batch_size: 128
@@ -40,6 +39,8 @@ train:
   prior_sigma: 0.01
   posterior_mu_initial: [0, 0.05]
   posterior_rho_initial: [-3, 0.01]
+
+  init_lambda: 0.001
 
   in_channels: 3
   out_channels: 10
