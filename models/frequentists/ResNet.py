@@ -28,7 +28,7 @@ class ResNet(nn.Module):
         emb = self.model(x)
         out = self.out(emb)
 
-        return out, emb
+        return out
 
     def inference(self, x):
         maps = []

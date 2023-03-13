@@ -9,11 +9,11 @@ gpu_ids: [2]
 dataset:
   image_size: 32
   in: "CIFAR10"
-  ood: "Omiglot"
+  ood: "SVHN"
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/LeNet_Ensembles_CIFAR10_Omiglot/"
+  path: "./checkpoints/LeNet_Ensembles_CIFAR10_SVHN/"
   save_checkpoint_freq: 2
 
 

@@ -33,15 +33,12 @@ class BNNARHTTrainer(Trainer):
         in_data_name = self.config_data["in"]
         ood_data_name = self.config_data["ood"]
         image_size = self.config_data["image_size"]
+        in_channel = self.config_train["in_channels"]
 
-        train_in = load_data(in_data_name, True, image_size)
-        test_in = load_data(in_data_name, False, image_size)
-        train_out = load_data(ood_data_name, True, image_size)
-        test_out = load_data(ood_data_name, False, image_size)
-
-        # train_all = load_data("MNIST", True, self.batch_size)
-        # train_all.data = torch.cat((train_in.data, train_out.data))
-        # train_all.targets = torch.cat((train_in.targets, train_out.targets))
+        train_in = load_data(in_data_name, True, image_size, in_channel)
+        test_in = load_data(in_data_name, False, image_size, in_channel)
+        train_out = load_data(ood_data_name, True, image_size, in_channel)
+        test_out = load_data(ood_data_name, False, image_size, in_channel)
 
         self.train_in_loader = DataLoader(train_in, batch_size=self.batch_size, shuffle=True)
         # self.train_all_loader = DataLoader(train_all, batch_size=self.batch_size, shuffle=True)

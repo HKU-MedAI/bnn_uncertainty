@@ -34,14 +34,15 @@ class DeepEnsemblesTrainer(Trainer):
     def __init__(self, config):
         super().__init__(config)
 
+        image_size = self.config_data["image_size"]
         in_data_name = self.config_data["in"]
         ood_data_name = self.config_data["ood"]
-        image_size = self.config_data["image_size"]
+        in_channel = self.config_train["in_channels"]
 
-        train_in = load_data(in_data_name, True, image_size)
-        test_in = load_data(in_data_name, False, image_size)
-        train_out = load_data(ood_data_name, True, image_size)
-        test_out = load_data(ood_data_name, False, image_size)
+        train_in = load_data(in_data_name, True, image_size, in_channel)
+        test_in = load_data(in_data_name, False, image_size, in_channel)
+        train_out = load_data(ood_data_name, True, image_size, in_channel)
+        test_out = load_data(ood_data_name, False, image_size, in_channel)
 
 
         # train_out.targets = torch.tensor(np.ones(len(train_out.targets)) * 10, dtype=torch.long)

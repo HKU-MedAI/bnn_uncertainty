@@ -9,11 +9,11 @@ gpu_ids: [2]
 dataset:
   image_size: 32
   in: "MNIST"
-  ood: "FashionMNIST"
+  ood: "SVHN"
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/BLeNet_ARHT_MNIST/"
+  path: "./checkpoints/BLeNet_ARHT_MNIST_SVHN/"
   save_checkpoint_freq: 2
 
 
@@ -38,11 +38,11 @@ train:
   prior_mu: 0
   prior_sigma: 0.01
   posterior_mu_initial: [0, 0.05]
-  posterior_rho_initial: [-3, 0.01]
+  posterior_rho_initial: [-3.5, 0.01]
 
-  init_lambda: 0.001
+  init_lambda: 0.01
 
-  in_channels: 1
+  in_channels: 3
   out_channels: 10
 
   loss: "ELBO"

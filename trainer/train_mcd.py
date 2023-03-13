@@ -1,5 +1,5 @@
 """
-Trainer of What uncertainties
+Trainer of MC Dropout
 """
 from tqdm import tqdm
 
@@ -13,7 +13,7 @@ import utils
 from parse import (
     parse_loss,
     parse_optimizer,
-    parse_bayesian_model
+    parse_frequentist_model
 )
 from losses import EdlLoss
 
@@ -30,7 +30,7 @@ import torch.distributions as dist
 from torch.distributions.dirichlet import Dirichlet
 
 
-class WhatUncertaintiesTrainer(Trainer):
+class MCDTrainer(Trainer):
     def __init__(self, config):
         super().__init__(config)
 
@@ -49,8 +49,11 @@ class WhatUncertaintiesTrainer(Trainer):
         self.test_out_loader = DataLoader(test_out, batch_size=self.batch_size, shuffle=True)
 
         self.n_classes = self.config_train["out_channels"]
-        self.model = parse_bayesian_model(self.config_train, image_size=image_size).to(self.device)
+        self.n_test_samples = self.config_train["n_testing_samples"]
+        self.model = parse_frequentist_model(self.config_train, image_size=image_size).to(self.device)
         self.optimzer = parse_optimizer(self.config_optim, self.model.parameters())
+
+        self.edl_loss = EdlLoss(self.device)
 
     @staticmethod
     def target_alpha(targets):
@@ -77,19 +80,16 @@ class WhatUncertaintiesTrainer(Trainer):
     def train_one_step(self, data, label, epoch):
         self.optimzer.zero_grad()
 
-        label = utils.one_hot_embedding(label, self.n_classes).cuda()
+        outputs = torch.zeros(data.shape[0], self.config_train["out_channels"], 1).to(self.device)
 
-        # Training
-        mu_train, sig_train = self.model(data)
-        sig_train_pos = torch.log(1 + torch.exp(sig_train)) + 1e-6
+        pred = self.model.mc_dropout(data, 0.2)
 
-        loss = torch.mean(
-            0.5 * torch.log(sig_train_pos) + 0.5 * (torch.square(label - mu_train) / sig_train_pos)) + 1
-        kl_loss = self.model.kl_loss()
-        loss += kl_loss
+        outputs[:, :, 0] = F.log_softmax(pred, dim=1)
+        log_outputs = utils.logmeanexp(outputs, dim=2)
 
-        self.optimzer.zero_grad()
+        loss = F.nll_loss(log_outputs, label)
         loss.backward()
+
         self.optimzer.step()
 
         return loss.item()
@@ -100,17 +100,22 @@ class WhatUncertaintiesTrainer(Trainer):
 
         data = data.to(self.device)
 
+        # Monte Carlo samples from different dropout mask at test time
         with torch.no_grad():
-            preds = [self.model(data) for _ in range(20)]
-            preds_mu = torch.stack([p[0] for p in preds])
-            preds_sig = torch.stack([p[1] for p in preds])
-            preds_sig = torch.log(1 + torch.exp(preds_sig)) + 1e-6
+            scores = self.model(data)
 
-        mu_final = preds_mu.mean(0)
+        # Compute embeddings
+        with torch.no_grad():
+            scores = [self.model.mc_dropout(data, 0.2) for _ in range(self.n_test_samples)]
+            scores = torch.stack(scores)
 
-        scores = torch.sqrt(preds_sig.mean(0) + (preds_mu.square().mean(0) - mu_final.square())).sum(1)
+        s = [torch.exp(a) for a in scores]
+        s0 = [torch.sum(a, dim=1, keepdim=True) for a in s]
+        probs = [a / a0 for (a, a0) in zip(s, s0)]
+        ret = [-torch.sum(v * torch.log(v), dim=1) for v in probs]
+        entropy = torch.stack(ret).mean(0)
 
-        return scores.detach().cpu().numpy()
+        return entropy
 
     def validate(self, epoch):
 
@@ -126,32 +131,19 @@ class WhatUncertaintiesTrainer(Trainer):
             scores = self.valid_one_step(data, label)
             out_score_list.append(scores)
 
-        in_scores = np.concatenate(in_score_list)
-        out_scores = np.concatenate(out_score_list)
+        in_scores = torch.cat(in_score_list)
+        out_scores = torch.cat(out_score_list)
 
         labels_1 = torch.cat(
+            [torch.ones(in_scores.shape),
+             torch.zeros(out_scores.shape)]
+        ).detach().cpu().numpy()
+        labels_2 = torch.cat(
             [torch.zeros(in_scores.shape),
              torch.ones(out_scores.shape)]
         ).detach().cpu().numpy()
 
-        labels_2 = torch.cat(
-            [torch.ones(in_scores.shape),
-             torch.zeros(out_scores.shape)]
-        ).detach().cpu().numpy()
-
-        scores = np.concatenate([in_scores, out_scores])
-
-        index = np.isposinf(scores)
-        scores[np.isposinf(scores)] = 1e9
-        maximum = np.amax(scores)
-        scores[np.isposinf(scores)] = maximum + 1
-
-        index = np.isneginf(scores)
-        scores[np.isneginf(scores)] = -1e9
-        minimum = np.amin(scores)
-        scores[np.isneginf(scores)] = minimum - 1
-
-        scores[np.isnan(scores)] = 0
+        scores = torch.cat([in_scores, out_scores]).detach().cpu().numpy()
 
         def comp_aucs(scores, labels_1, labels_2):
 
@@ -183,6 +175,7 @@ class WhatUncertaintiesTrainer(Trainer):
 
             for i, (data, label) in enumerate(self.train_in_loader):
                 data = data.to(self.device)
+                label = label.to(self.device)
 
                 res = self.train_one_step(data, label, epoch)
 

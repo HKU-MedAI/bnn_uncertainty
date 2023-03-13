@@ -52,6 +52,7 @@ class BBBLeNet(nn.Module):
 
         self.fc3 = BBBLinear(84, outputs, bias=True, priors=self.priors)
 
+        self.is_de = de
         if de:
             self.fc_sig = BBBLinear(84, outputs, bias=True, priors=self.priors)
 
@@ -72,12 +73,13 @@ class BBBLeNet(nn.Module):
         x = self.fc2(x)
         x = self.act4(x)
 
-        x = self.fc3(x)
+        out = self.fc3(x)
 
-        return x
+        if self.is_de:
+            out_sig = self.fc_sig(x)
+            return out, out_sig
 
-    def de_forward(self):
-        pass
+        return out
 
     def kl_loss(self):
         # Compute KL divergences

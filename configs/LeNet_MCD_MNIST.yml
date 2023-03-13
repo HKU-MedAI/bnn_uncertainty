@@ -1,6 +1,6 @@
 #### general settings
-name: WU
-train_type: what-uncertainties
+name: BPN
+train_type: mcd
 eval_type: bnn
 gpu_ids: [2]
 
@@ -9,11 +9,11 @@ gpu_ids: [2]
 dataset:
   image_size: 32
   in: "MNIST"
-  ood: "FashionMNIST"
+  ood: "SVHN"
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/LeNet_Ensembles_MNIST/"
+  path: "./checkpoints/LeNet_MCD_CIFAR10_SVHN/"
   save_checkpoint_freq: 2
 
 
@@ -27,14 +27,13 @@ optimizer:
 train:
   model_name: "LeNet"
 
-  is_de: True  # Whether or not apply deep ensembles
-  n_models: 5
-
   num_epochs: 100
   batch_size: 128
   train_size: 1
 
-  in_channels: 1
+  in_channels: 3
   out_channels: 10
+
+  n_testing_samples: 200
 
   loss: "ELBO"

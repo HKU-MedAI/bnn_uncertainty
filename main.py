@@ -10,7 +10,9 @@ from trainer import (
     BNNARHTTrainer,
     EDLTrainer,
     DPNTrainer,
-    DeepEnsemblesTrainer
+    DeepEnsemblesTrainer,
+    MCDTrainer,
+    WhatUncertaintiesTrainer
 )
 from utils import ordered_yaml
 
@@ -21,7 +23,7 @@ parser.add_argument('-seed', type=int, help='random seed of the run', default=61
 args = parser.parse_args()
 
 opt_path = args.config
-default_config_path = "LeNet_EDL_CIFAR.yml"
+default_config_path = "ResNet_EDL_CIFAR.yml"
 
 if opt_path == "":
     opt_path = CONFIG_DIR / default_config_path
@@ -55,6 +57,10 @@ def main():
             trainer = DPNTrainer(config)
         elif config["train_type"] == "ensembles":
             trainer = DeepEnsemblesTrainer(config)
+        elif config["train_type"] == "mcd":
+            trainer = MCDTrainer(config)
+        elif config["train_type"] == "what-uncertainties":
+            trainer = WhatUncertaintiesTrainer(config)
         else:
             raise NotImplementedError(f"Trainer of type {config['train_type']} is not implemented")
         trainer.train()

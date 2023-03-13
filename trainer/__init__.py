@@ -9,6 +9,7 @@ from .train_edl import EDLTrainer
 from .train_dpn import DPNTrainer
 from .train_ensembles import DeepEnsemblesTrainer
 from .train_what_uncertainties import WhatUncertaintiesTrainer
+from .train_mcd import MCDTrainer
 
 __all__ = [
     'Trainer',

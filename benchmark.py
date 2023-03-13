@@ -9,7 +9,10 @@ from trainer import (
     BNNUncertaintyTrainer,
     BNNARHTTrainer,
     EDLTrainer,
-    DPNTrainer
+    DPNTrainer,
+    DeepEnsemblesTrainer,
+    MCDTrainer,
+    WhatUncertaintiesTrainer
 )
 from utils import ordered_yaml
 
@@ -20,7 +23,7 @@ parser.add_argument('-seed', type=int, help='random seed of the run', default=61
 args = parser.parse_args()
 
 opt_path = args.config
-default_config_path = "BLeNet_ARHT_MNIST.yml"
+default_config_path = "LeNet_DPN_CIFAR.yml"
 
 if opt_path == "":
     opt_path = CONFIG_DIR / default_config_path
@@ -45,6 +48,12 @@ def parse_trainer(config):
             trainer = EDLTrainer(config)
         elif config["train_type"] == "dpn":
             trainer = DPNTrainer(config)
+        elif config["train_type"] == "ensembles":
+            trainer = DeepEnsemblesTrainer(config)
+        elif config["train_type"] == "mcd":
+            trainer = MCDTrainer(config)
+        elif config["train_type"] == "what-uncertainties":
+            trainer = WhatUncertaintiesTrainer(config)
         else:
             raise NotImplementedError(f"Trainer of type {config['train_type']} is not implemented")
         return trainer
@@ -72,35 +81,43 @@ def benchmark_sample_size(config):
         trainer.train()
 
 def benchmark_datasets(config):
-    in_datasets = ["CIFAR10", "MNIST"]
-    out_datasets = ["FashionMNIST", "OMNIGLOT", "SVHN"]
+    name = config["name"]
+    archi = config["train"]["model_name"]
+    in_datasets = ["MNIST", "CIFAR10"]
+    out_datasets = ["FashionMNIST", "Omiglot", "SVHN"]
 
     for in_data in in_datasets:
         for out_data in out_datasets:
             config["dataset"]["in"] = in_data
             config["dataset"]["ood"] = out_data
-            config["checkpoints"]["path"] = f"./checkpoints/BLeNet_ARHT_{in_data}_{out_data}"
-
-            if in_data in ["CIFAR10"]:
-                config["train"]["in_channel"] = 3
-                config["train"]["out_channel"] = 10
-            elif in_data in ["MNIST"]:
-                config["train"]["in_channel"] = 1
-                config["train"]["out_channel"] = 10
+            config["checkpoints"]["path"] = f"./checkpoints/{archi}_{name}_{in_data}_{out_data}"
 
             trainer = parse_trainer(config)
 
             trainer.train()
 
+def benchmark_dimensions(config):
+    pass
+
 def benchmark_architectures(config):
 
-    for archi in ["BAlexNet", "BLeNet", "BResNet"]:
+    name = config["name"]
+    in_data = "CIFAR10"
+    out_data = "SVHN"
+
+    # for archi in ["BAlexNet", "BLeNet", "BResNet"]:
+    for archi in ["CNN", "AlexNet", "LeNet", "ResNet"]:
         config["train"]["model_name"] = archi
-        config["checkpoints"]["path"] = f"./checkpoints/{archi}_ARHT"
+        config["checkpoints"]["path"] = f"./checkpoints/{archi}_{name}_{in_data}_{out_data}"
 
         trainer = parse_trainer(config)
 
         trainer.train()
+
+
+def benchmark_methods(config):
+    pass
+
 
 def main():
     # Load configurations
@@ -112,13 +129,14 @@ def main():
     configs = [
         "LeNet_EDL_MNIST.yml",
         "LeNet_DPN_MNIST.yml",
-        "BLeNet_ARHT_C10OM.yml"
+        "BLeNet_ARHT_CIFAR10.yml"
     ]
 
     # benchmark_lambda(config)
     # benchmark_sample_size(config)
     # benchmark_datasets(config)
     benchmark_architectures(config)
+
 if __name__ == "__main__":
     torch.multiprocessing.set_start_method('spawn')
     main()

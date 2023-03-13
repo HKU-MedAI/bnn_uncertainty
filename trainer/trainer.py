@@ -64,3 +64,16 @@ class Trainer(ABC):
         # Save labels
         np.save(labels_path, label)
         np.save(pred_path, pred)
+
+    def visualize_scores(self, in_scores, out_scores, epoch):
+        pth = self.checkpoint_manager.path / "visualizations"
+        if not pth.exists():
+            pth.mkdir()
+
+        fig, ax = plt.subplots()
+        ax.hist(in_scores, bin=200, color="g")
+        ax.hist(out_scores, bin=200, color="r")
+
+        plt.savefig(pth / f"scors_ep{epoch}.png")
+
+        plt.close()

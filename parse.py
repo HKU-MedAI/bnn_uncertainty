@@ -78,6 +78,12 @@ def parse_bayesian_model(config_train, image_size=32):
 
     model_name = config_train["model_name"]
 
+    # Check deep ensembles
+    try:
+        is_de = config_train["is_de"]
+    except KeyError:
+        is_de = False
+
     # Read priors for BNNs
     if model_name in ["BCNN", "BLeNet", "BAlexNet"]:
         priors = {
@@ -112,12 +118,10 @@ def parse_bayesian_model(config_train, image_size=32):
         priors = None
 
     if model_name == "BCNN":
-        n_blocks = config_train["n_blocks"]
         return BBB3Conv3FC(
             outputs=out_dim,
             inputs=in_dim,
-            priors=priors,
-            n_blocks=n_blocks
+            priors=priors
         )
     elif model_name == "BMLP":
         n_blocks = config_train["n_blocks"]
@@ -132,7 +136,8 @@ def parse_bayesian_model(config_train, image_size=32):
             outputs=out_dim,
             inputs=in_dim,
             priors=priors,
-            image_size=image_size
+            image_size=image_size,
+            de=is_de
         )
     elif model_name == "BAlexNet":
         model = BBBAlexNet(
@@ -187,11 +192,9 @@ def parse_frequentist_model(config_freq, image_size=32):
             inputs=in_dim
         )
     elif model_name == "CNN":
-        n_blocks = config_freq["n_blocks"]
         return CNN(
             outputs=out_dim,
             inputs=in_dim,
-            n_blocks=n_blocks
         )
     elif model_name == "MLP":
         n_blocks = config_freq["n_blocks"]

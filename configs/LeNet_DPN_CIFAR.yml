@@ -1,6 +1,6 @@
 #### general settings
-name: EDL
-train_type: edl
+name: DPN
+train_type: dpn
 eval_type: bnn
 gpu_ids: [2]
 
@@ -9,11 +9,11 @@ gpu_ids: [2]
 dataset:
   image_size: 32
   in: "CIFAR10"
-  ood: "FashionMNIST"
+  ood: "SVHN"
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/LeNet_EDL_CIFAR10_FashionMNIST/"
+  path: "./checkpoints/LeNet_DPN_CIFAR10_Omiglot/"
   save_checkpoint_freq: 2
 
 

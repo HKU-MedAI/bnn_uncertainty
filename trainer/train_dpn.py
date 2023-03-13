@@ -34,23 +34,22 @@ class DPNTrainer(Trainer):
     def __init__(self, config):
         super().__init__(config)
 
-        train_in = load_data("MNIST", True, self.batch_size)
-        test_in = load_data("MNIST", False, self.batch_size)
-        train_out = load_data("FashionMNIST", True, self.batch_size)
-        test_out = load_data("FashionMNIST", False, self.batch_size)
+        image_size = self.config_data["image_size"]
+        in_data_name = self.config_data["in"]
+        ood_data_name = self.config_data["ood"]
+        in_channel = self.config_train["in_channels"]
 
-        train_out.targets = torch.tensor(np.ones(len(train_out.targets)) * 10, dtype=torch.long)
+        train_in = load_data(in_data_name, True, image_size, in_channel)
+        test_in = load_data(in_data_name, False, image_size, in_channel)
+        train_out = load_data(ood_data_name, True, image_size, in_channel)
+        test_out = load_data(ood_data_name, False, image_size, in_channel)
 
-        train_all = train_in
-        train_all.data = torch.cat((train_in.data, train_out.data))
-        train_all.targets = torch.cat((train_in.targets, train_out.targets))
-
-        self.train_all_loader = DataLoader(train_all, batch_size=self.batch_size, shuffle=True)
+        self.train_in_loader = DataLoader(train_in, batch_size=self.batch_size, shuffle=True)
         self.test_in_loader = DataLoader(test_in, batch_size=self.batch_size, shuffle=True)
         self.test_out_loader = DataLoader(test_out, batch_size=self.batch_size, shuffle=True)
 
         self.n_classes = self.config_train["out_channels"]
-        self.model = parse_frequentist_model(self.config_train, image_size=28).to(self.device)
+        self.model = parse_frequentist_model(self.config_train, image_size=image_size).to(self.device)
         self.optimzer = parse_optimizer(self.config_optim, self.model.parameters())
 
         self.edl_loss = EdlLoss(self.device)
@@ -203,7 +202,7 @@ class DPNTrainer(Trainer):
             training_loss_list = []
             labels = []
 
-            for i, (data, label) in enumerate(self.train_all_loader):
+            for i, (data, label) in enumerate(self.train_in_loader):
                 data = data.to(self.device)
 
                 res = self.train_one_step(data, label, epoch)

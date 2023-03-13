@@ -34,11 +34,12 @@ class EDLTrainer(Trainer):
         image_size = self.config_data["image_size"]
         in_data_name = self.config_data["in"]
         ood_data_name = self.config_data["ood"]
+        in_channel = self.config_train["in_channels"]
 
-        train_in = load_data(in_data_name, True, image_size)
-        test_in = load_data(in_data_name, False, image_size)
-        train_out = load_data(ood_data_name, True, image_size)
-        test_out = load_data(ood_data_name, False, image_size)
+        train_in = load_data(in_data_name, True, image_size, in_channel)
+        test_in = load_data(in_data_name, False, image_size, in_channel)
+        train_out = load_data(ood_data_name, True, image_size, in_channel)
+        test_out = load_data(ood_data_name, False, image_size, in_channel)
 
         # train_out.targets = torch.tensor(np.ones(len(train_out.targets)) * 10, dtype=torch.long)
         #
@@ -113,28 +114,34 @@ class EDLTrainer(Trainer):
         in_scores = torch.cat(in_score_list)
         out_scores = torch.cat(out_score_list)
 
-        labels = torch.cat(
+        labels_1 = torch.cat(
             [torch.ones(in_scores.shape),
              torch.zeros(out_scores.shape)]
+        ).detach().cpu().numpy()
+        labels_2 = torch.cat(
+            [torch.zeros(in_scores.shape),
+             torch.ones(out_scores.shape)]
         ).detach().cpu().numpy()
 
         scores = torch.cat([in_scores, out_scores]).detach().cpu().numpy()
 
-        index = np.isposinf(scores)
-        scores[np.isposinf(scores)] = 1e9
-        maximum = np.amax(scores)
-        scores[np.isposinf(scores)] = maximum + 1
+        def comp_aucs(scores, labels_1, labels_2):
 
-        index = np.isneginf(scores)
-        scores[np.isneginf(scores)] = -1e9
-        minimum = np.amin(scores)
-        scores[np.isneginf(scores)] = minimum - 1
+            auroc_1 = roc_auc_score(labels_1, scores)
+            auroc_2 = roc_auc_score(labels_2, scores)
+            auroc = max(auroc_1, auroc_2)
 
-        scores[np.isnan(scores)] = 0
+            precision, recall, thresholds = precision_recall_curve(labels_1, scores)
+            aupr_1 = auc(recall, precision)
 
-        auroc = roc_auc_score(labels, scores)
-        precision, recall, thresholds = precision_recall_curve(labels, scores)
-        aupr = auc(recall, precision)
+            precision, recall, thresholds = precision_recall_curve(labels_2, scores)
+            aupr_2 = auc(recall, precision)
+
+            aupr = max(aupr_1, aupr_2)
+
+            return auroc, aupr, precision, recall
+
+        auroc, aupr, precision, recall = comp_aucs(scores, labels_1, labels_2)
 
         return auroc, aupr, precision, recall
 

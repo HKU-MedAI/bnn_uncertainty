@@ -11,59 +11,40 @@ class CNN(nn.Module):
     and 3 FC layers with Bayesian layers.
     """
 
-    def __init__(self, outputs, inputs, image_size=32, n_blocks=3, activation_type='softplus'):
+    def __init__(self, outputs, inputs, image_size=32, activation_type='softplus'):
         super(CNN, self).__init__()
 
         self.num_classes = outputs
 
         if activation_type == 'softplus':
-            self.act = nn.Softplus
+            self.act = nn.Softplus()
         elif activation_type == 'relu':
-            self.act = nn.ReLU
+            self.act = nn.ReLU()
         else:
             raise ValueError("Only softplus or relu supported")
 
-        self.n_blocks = n_blocks
-
-        convs = [
-                nn.Conv2d(inputs, 32, 5, padding=2, bias=True),
-                nn.Conv2d(32, 64, 5, padding=2, bias=True),
-                nn.Conv2d(64, 128, 5, padding=1, bias=True),
-                nn.Conv2d(128, 128, 2, padding=1, bias=True)
-        ]
-
-        pools = [
-                nn.MaxPool2d(kernel_size=3, stride=2),
-                nn.MaxPool2d(kernel_size=3, stride=2),
-                nn.MaxPool2d(kernel_size=3, stride=2),
-                nn.MaxPool2d(kernel_size=3, stride=2)
-            ]
-
-        self.conv_block = nn.Sequential()
-
-        out_size = image_size
-        out_channels = 0
-
-        for l in range(self.n_blocks):
-            self.conv_block.add_module(f"conv{l}", convs[l])
-            self.conv_block.add_module(f"act{l}", self.act())
-            self.conv_block.add_module(f"pool{l}", pools[l])
-            out_size = (out_size - 5 + 2 * convs[l].padding[0]) // 1 + 1
-            out_size = (out_size - 3) // 2 + 1
-            out_channels = convs[l].out_channels
-
-        self.dense_block = nn.Sequential(
-                FlattenLayer(out_size * out_size * out_channels),
-                nn.Linear(out_size * out_size * out_channels, 1000, bias=True),
-                self.act(),
-                nn.Linear(1000, 1000, bias=True),
-                self.act(),
-                nn.Linear(1000, outputs, bias=True)
-        )
+        self.conv1 = nn.Conv2d(inputs, 10, kernel_size=5)
+        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
+        self.conv2_drop = nn.Dropout2d()
+        self.fc1 = nn.Linear(500, 50)
+        self.fc2 = nn.Linear(50, outputs)
+        self.max_pool = nn.MaxPool2d(kernel_size=2)
+        self.flat = nn.Flatten()
 
     def forward(self, x):
-        x = self.conv_block(x)
-        x = self.dense_block(x)
+        x = self.conv1(x)
+        x = self.max_pool(x)
+        x = self.act(x)
+
+        x = self.conv2(x)
+        x = self.max_pool(x)
+        x = self.conv2_drop(x)
+        x = self.act(x)
+
+        x = self.flat(x)
+        x = self.fc1(x)
+        x = self.act(x)
+        x = self.fc2(x)
 
         return x
 
