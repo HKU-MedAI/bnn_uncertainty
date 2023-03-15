@@ -91,7 +91,7 @@ class BNNARHTTrainer(Trainer):
 
         # Monte Carlo samples from different dropout mask at test time
         with torch.no_grad():
-            scores = [self.model(data) for _ in range(self.n_noraml_samples)]
+            scores = [self.model(data, get_emb=True)  for _ in range(self.n_noraml_samples)]
             scores = torch.cat(scores)
 
         n_1 = scores.shape[0]
@@ -114,7 +114,7 @@ class BNNARHTTrainer(Trainer):
 
         # Compute embeddings
         with torch.no_grad():
-            scores = [self.model(data) for _ in range(self.n_test_samples)]
+            scores = [self.model(data, get_emb=True) for _ in range(self.n_test_samples)]
             scores = torch.stack(scores)
 
         # Bring data to numpy
@@ -219,7 +219,7 @@ class BNNARHTTrainer(Trainer):
         return auroc, aupr, precision, recall
 
     def train(self) -> None:
-        print(f"Start training Uncertainty BNN...")
+        print(f"Start training ARHT Uncertainty BNN...")
 
         training_range = tqdm(range(self.n_epoch))
         for epoch in training_range:

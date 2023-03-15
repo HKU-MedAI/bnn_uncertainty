@@ -23,7 +23,7 @@ parser.add_argument('-seed', type=int, help='random seed of the run', default=61
 args = parser.parse_args()
 
 opt_path = args.config
-default_config_path = "LeNet_DPN_CIFAR.yml"
+default_config_path = "BLeNet_ARHT_CIFAR10.yml"
 
 if opt_path == "":
     opt_path = CONFIG_DIR / default_config_path
@@ -80,24 +80,40 @@ def benchmark_sample_size(config):
 
         trainer.train()
 
+
 def benchmark_datasets(config):
     name = config["name"]
     archi = config["train"]["model_name"]
     in_datasets = ["MNIST", "CIFAR10"]
     out_datasets = ["FashionMNIST", "Omiglot", "SVHN"]
 
-    for in_data in in_datasets:
-        for out_data in out_datasets:
-            config["dataset"]["in"] = in_data
-            config["dataset"]["ood"] = out_data
-            config["checkpoints"]["path"] = f"./checkpoints/{archi}_{name}_{in_data}_{out_data}"
+    for seed in range(5):
+        s = hash(seed)
+        random.seed(s)
+        torch.manual_seed(s)
+        for in_data in in_datasets:
+            for out_data in out_datasets:
+                config["dataset"]["in"] = in_data
+                config["dataset"]["ood"] = out_data
+                config["checkpoints"]["path"] = f"./checkpoints/{archi}_{name}_{in_data}_{out_data}_s{seed}"
 
-            trainer = parse_trainer(config)
+                trainer = parse_trainer(config)
 
-            trainer.train()
+                trainer.train()
+
 
 def benchmark_dimensions(config):
-    pass
+    name = config["name"]
+    archi = config["train"]["model_name"]
+    in_data = "CIFAR10"
+    out_data = "SVHN"
+
+    for d in [8, 16, 32, 64, 128, 256]:
+        config["train"]["emb_dim"] = d
+        config["checkpoints"]["path"] = f"./checkpoints/{archi}_{name}_{in_data}_{out_data}_p{d}"
+        trainer = parse_trainer(config)
+        trainer.train()
+
 
 def benchmark_architectures(config):
 
@@ -135,7 +151,8 @@ def main():
     # benchmark_lambda(config)
     # benchmark_sample_size(config)
     # benchmark_datasets(config)
-    benchmark_architectures(config)
+    benchmark_dimensions(config)
+    # benchmark_architectures(config)
 
 if __name__ == "__main__":
     torch.multiprocessing.set_start_method('spawn')

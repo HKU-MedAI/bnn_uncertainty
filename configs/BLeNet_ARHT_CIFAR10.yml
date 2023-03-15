@@ -1,5 +1,5 @@
 #### general settings
-name: BPN
+name: ARHT
 train_type: arht-uncertainty
 eval_type: bnn
 gpu_ids: [2]
@@ -10,7 +10,7 @@ dataset:
   name: "BDLB"
   image_size: 32
   in: "CIFAR10"
-  ood: "FashionMNIST"
+  ood: "SVHN"
 
 #### Checkpoint settings
 checkpoints:
@@ -45,5 +45,6 @@ train:
 
   in_channels: 3
   out_channels: 10
+  emb_dim: 10
 
   loss: "ELBO"

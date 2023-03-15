@@ -1,5 +1,5 @@
 """
-Trainer of MC Dropout
+Trainer of DPN
 """
 from tqdm import tqdm
 
@@ -29,8 +29,10 @@ from sklearn.metrics import precision_recall_curve, auc
 import torch.distributions as dist
 from torch.distributions.dirichlet import Dirichlet
 
+from .postnet.src.posterior_networks.run import run
 
-class MCDTrainer(Trainer):
+
+class PostNetTrainer(Trainer):
     def __init__(self, config):
         super().__init__(config)
 
@@ -49,7 +51,6 @@ class MCDTrainer(Trainer):
         self.test_out_loader = DataLoader(test_out, batch_size=self.batch_size, shuffle=True)
 
         self.n_classes = self.config_train["out_channels"]
-        self.n_test_samples = self.config_train["n_testing_samples"]
         self.model = parse_frequentist_model(self.config_train, image_size=image_size).to(self.device)
         self.optimzer = parse_optimizer(self.config_optim, self.model.parameters())
 
@@ -80,14 +81,15 @@ class MCDTrainer(Trainer):
     def train_one_step(self, data, label, epoch):
         self.optimzer.zero_grad()
 
-        outputs = torch.zeros(data.shape[0], self.config_train["out_channels"], 1).to(self.device)
+        # predict alpha
+        target_a = self.target_alpha(label)
+        target_a = target_a.to(self.device)
+        output_alpha = torch.exp(self.model(data))
+        dirichlet1 = Dirichlet(output_alpha)
+        dirichlet2 = Dirichlet(target_a)
 
-        pred = self.model.mc_dropout(data, 0.2)
+        loss = torch.sum(dist.kl.kl_divergence(dirichlet1, dirichlet2))
 
-        outputs[:, :, 0] = F.log_softmax(pred, dim=1)
-        log_outputs = utils.logmeanexp(outputs, dim=2)
-
-        loss = F.nll_loss(log_outputs, label)
         loss.backward()
 
         self.optimzer.step()
@@ -104,48 +106,74 @@ class MCDTrainer(Trainer):
         with torch.no_grad():
             scores = self.model(data)
 
-        # Compute embeddings
-        with torch.no_grad():
-            scores = [self.model.mc_dropout(data, 0.2) for _ in range(self.n_test_samples)]
-            scores = torch.stack(scores)
+        # s = [torch.exp(a) for a in scores]
+        # s0 = [torch.sum(a, dim=0, keepdim=True) for a in s]
+        # probs = [a / a0 for (a, a0) in zip(s, s0)]
+        # ret = [-torch.sum(v * torch.log(v), dim=0) for v in probs]
+        # entropy = torch.stack(ret).mean(0)
+        # conf = torch.max(torch.stack(probs), dim=1).values
 
-        s = [torch.exp(a) for a in scores]
-        s0 = [torch.sum(a, dim=1, keepdim=True) for a in s]
-        probs = [a / a0 for (a, a0) in zip(s, s0)]
-        ret = [-torch.sum(v * torch.log(v), dim=1) for v in probs]
-        entropy = torch.stack(ret).mean(0)
+        alphas = torch.exp(self.model(data))
+        alpha0 = torch.sum(alphas, dim=1, keepdim=True)
+        probs = alphas / alpha0
+        entropy = -torch.sum(probs*torch.log(probs), dim=1)
+        conf = torch.max(probs, dim=1).values
 
-        return entropy
+        return entropy, conf
 
     def validate(self, epoch):
 
         valid_loss_list = []
-        in_score_list = []
-        out_score_list = []
+        in_score_list_ent = []
+        out_score_list_ent = []
+        in_score_list_conf = []
+        out_score_list_conf = []
 
         for i, (data, label) in enumerate(self.test_in_loader):
-            scores = self.valid_one_step(data, label)
-            in_score_list.append(scores)
+            in_scores_ent, in_scores_conf = self.valid_one_step(data, label)
+            in_score_list_ent.append(in_scores_ent)
+            in_score_list_conf.append(in_scores_conf)
 
         for i, (data, label) in enumerate(self.test_out_loader):
-            scores = self.valid_one_step(data, label)
-            out_score_list.append(scores)
+            out_scores_ent,  out_scores_conf = self.valid_one_step(data, label)
+            out_score_list_ent.append(out_scores_ent)
+            out_score_list_conf.append(out_scores_conf)
 
-        in_scores = torch.cat(in_score_list)
-        out_scores = torch.cat(out_score_list)
+        in_scores_ent = torch.cat(in_score_list_ent)
+        out_scores_ent = torch.cat(out_score_list_ent)
+        in_scores_conf = torch.cat(in_score_list_conf)
+        out_scores_conf = torch.cat(out_score_list_conf)
 
         labels_1 = torch.cat(
-            [torch.ones(in_scores.shape),
-             torch.zeros(out_scores.shape)]
+            [torch.ones(in_scores_ent.shape),
+             torch.zeros(out_scores_ent.shape)]
         ).detach().cpu().numpy()
         labels_2 = torch.cat(
-            [torch.zeros(in_scores.shape),
-             torch.ones(out_scores.shape)]
+            [torch.zeros(in_scores_ent.shape),
+             torch.ones(out_scores_ent.shape)]
         ).detach().cpu().numpy()
 
-        scores = torch.cat([in_scores, out_scores]).detach().cpu().numpy()
+        ent_scores = torch.cat([in_scores_ent, out_scores_ent]).detach().cpu().numpy()
+        conf_scores = torch.cat([in_scores_conf, out_scores_conf]).detach().cpu().numpy()
 
-        scores = self.format_scores(scores)
+        def format_scores(scores):
+
+            index = np.isposinf(scores)
+            scores[np.isposinf(scores)] = 1e9
+            maximum = np.amax(scores)
+            scores[np.isposinf(scores)] = maximum + 1
+
+            index = np.isneginf(scores)
+            scores[np.isneginf(scores)] = -1e9
+            minimum = np.amin(scores)
+            scores[np.isneginf(scores)] = minimum - 1
+
+            scores[np.isnan(scores)] = 0
+
+            return scores
+
+        ent_scores = format_scores(ent_scores)
+        conf_scores = format_scores(conf_scores)
 
         def comp_aucs(scores, labels_1, labels_2):
 
@@ -161,11 +189,12 @@ class MCDTrainer(Trainer):
 
             aupr = max(aupr_1, aupr_2)
 
-            return auroc, aupr, precision, recall
+            return auroc, aupr
 
-        auroc, aupr, precision, recall = comp_aucs(scores, labels_1, labels_2)
+        ent_auroc, ent_aupr = comp_aucs(ent_scores, labels_1, labels_2)
+        conf_auroc, conf_aupr = comp_aucs(conf_scores, labels_1, labels_2)
 
-        return auroc, aupr, precision, recall
+        return ent_auroc, ent_aupr, conf_auroc, conf_aupr
 
     def train(self) -> None:
         print(f"Start training Uncertainty BNN...")
@@ -177,7 +206,6 @@ class MCDTrainer(Trainer):
 
             for i, (data, label) in enumerate(self.train_in_loader):
                 data = data.to(self.device)
-                label = label.to(self.device)
 
                 res = self.train_one_step(data, label, epoch)
 

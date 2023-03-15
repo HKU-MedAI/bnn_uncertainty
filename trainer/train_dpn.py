@@ -154,24 +154,8 @@ class DPNTrainer(Trainer):
         ent_scores = torch.cat([in_scores_ent, out_scores_ent]).detach().cpu().numpy()
         conf_scores = torch.cat([in_scores_conf, out_scores_conf]).detach().cpu().numpy()
 
-        def format_scores(scores):
-
-            index = np.isposinf(scores)
-            scores[np.isposinf(scores)] = 1e9
-            maximum = np.amax(scores)
-            scores[np.isposinf(scores)] = maximum + 1
-
-            index = np.isneginf(scores)
-            scores[np.isneginf(scores)] = -1e9
-            minimum = np.amin(scores)
-            scores[np.isneginf(scores)] = minimum - 1
-
-            scores[np.isnan(scores)] = 0
-
-            return scores
-
-        ent_scores = format_scores(ent_scores)
-        conf_scores = format_scores(conf_scores)
+        ent_scores = self.format_scores(ent_scores)
+        conf_scores = self.format_scores(conf_scores)
 
         def comp_aucs(scores, labels_1, labels_2):
 

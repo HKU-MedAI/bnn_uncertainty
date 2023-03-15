@@ -77,3 +77,19 @@ class Trainer(ABC):
         plt.savefig(pth / f"scors_ep{epoch}.png")
 
         plt.close()
+
+    @staticmethod
+    def format_scores(scores):
+        index = np.isposinf(scores)
+        scores[np.isposinf(scores)] = 1e9
+        maximum = np.amax(scores)
+        scores[np.isposinf(scores)] = maximum + 1
+
+        index = np.isneginf(scores)
+        scores[np.isneginf(scores)] = -1e9
+        minimum = np.amin(scores)
+        scores[np.isneginf(scores)] = minimum - 1
+
+        scores[np.isnan(scores)] = 0
+
+        return scores

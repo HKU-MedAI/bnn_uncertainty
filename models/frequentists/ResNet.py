@@ -30,20 +30,29 @@ class ResNet(nn.Module):
 
         return out
 
-    def inference(self, x):
-        maps = []
-        maps.append(x.cpu().numpy())
-
+    def mc_dropout(self, x, p):
         x = self.model.conv1(x)
         x = self.model.bn1(x)
         x = self.model.relu(x)
         x = self.model.maxpool(x)
-        maps.append(x.cpu().numpy())
+        x = F.dropout(x, p=p)
 
         x = self.model.layer1(x)
-        maps.append(x.cpu().numpy())
+        x = F.dropout(x, p=p)
 
         x = self.model.layer2(x)
-        maps.append(x.cpu().numpy())
+        x = F.dropout(x, p=p)
 
-        return maps
+        x = self.model.layer3(x)
+        x = F.dropout(x, p=p)
+
+        x = self.model.layer4(x)
+        x = F.dropout(x, p=p)
+
+        x = self.model.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.model.fc(x)
+
+        x = self.out(x)
+
+        return x

@@ -84,6 +84,11 @@ def parse_bayesian_model(config_train, image_size=32):
     except KeyError:
         is_de = False
 
+    try:
+        p = config_train["emb_dim"]
+    except KeyError:
+        p = 84
+
     # Read priors for BNNs
     if model_name in ["BCNN", "BLeNet", "BAlexNet"]:
         priors = {
@@ -137,7 +142,8 @@ def parse_bayesian_model(config_train, image_size=32):
             inputs=in_dim,
             priors=priors,
             image_size=image_size,
-            de=is_de
+            de=is_de,
+            p=p
         )
     elif model_name == "BAlexNet":
         model = BBBAlexNet(

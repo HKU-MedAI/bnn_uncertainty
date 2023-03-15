@@ -11,7 +11,7 @@ from layers import (
 class BBBLeNet(nn.Module):
     '''The architecture of LeNet with Bayesian Layers'''
 
-    def __init__(self, outputs, inputs, priors, image_size=32, activation_type='softplus', de=False):
+    def __init__(self, outputs, inputs, priors, image_size=32, activation_type='softplus', de=False, p=84):
         """
 
         :param outputs:
@@ -47,16 +47,16 @@ class BBBLeNet(nn.Module):
         self.fc1 = BBBLinear(out_size * out_size * 16, 120, bias=True, priors=self.priors)
         self.act3 = self.act()
 
-        self.fc2 = BBBLinear(120, 84, bias=True, priors=self.priors)
+        self.fc2 = BBBLinear(120, p, bias=True, priors=self.priors)
         self.act4 = self.act()
 
-        self.fc3 = BBBLinear(84, outputs, bias=True, priors=self.priors)
+        self.fc3 = BBBLinear(p, outputs, bias=True, priors=self.priors)
 
         self.is_de = de
         if de:
             self.fc_sig = BBBLinear(84, outputs, bias=True, priors=self.priors)
 
-    def forward(self, x):
+    def forward(self, x, get_emb=False):
 
         x = self.conv1(x)
         x = self.act1(x)
@@ -74,6 +74,9 @@ class BBBLeNet(nn.Module):
         x = self.act4(x)
 
         out = self.fc3(x)
+
+        if get_emb:
+            return x
 
         if self.is_de:
             out_sig = self.fc_sig(x)

@@ -1,6 +1,6 @@
 #### general settings
-name: EDL
-train_type: edl
+name: BPN
+train_type: mcd
 eval_type: bnn
 gpu_ids: [2]
 
@@ -13,7 +13,7 @@ dataset:
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/ResNet_EDL_CIFAR10_SVHN/"
+  path: "./checkpoints/AlexNet_MCD_CIFAR10_SVHN/"
   save_checkpoint_freq: 2
 
 
@@ -25,7 +25,7 @@ optimizer:
 
 #### training settings: learning rate scheme, loss, optimizer
 train:
-  model_name: "ResNet"
+  model_name: "AlexNet"
 
   num_epochs: 100
   batch_size: 128
@@ -33,5 +33,7 @@ train:
 
   in_channels: 3
   out_channels: 10
+
+  n_testing_samples: 200
 
   loss: "ELBO"

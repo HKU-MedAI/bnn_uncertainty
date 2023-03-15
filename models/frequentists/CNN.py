@@ -49,13 +49,20 @@ class CNN(nn.Module):
         return x
 
     def mc_dropout(self, x, p):
-        for l in range(self.n_blocks):
+        x = self.conv1(x)
+        x = self.max_pool(x)
+        x = F.dropout(x, p=p)
+        x = self.act(x)
 
-            x = self.conv_block[3 * l](x)
-            x = self.conv_block[3 * l + 1](x)
-            x = self.conv_block[3 * l + 2](x)
-            x = F.dropout(x, p=p)
+        x = self.conv2(x)
+        x = self.max_pool(x)
+        x = self.conv2_drop(x)
+        x = self.act(x)
 
-        x = self.dense_block(x)
+        x = self.flat(x)
+        x = self.fc1(x)
+        x = F.dropout(x, p=p)
+        x = self.act(x)
+        x = self.fc2(x)
 
         return x
