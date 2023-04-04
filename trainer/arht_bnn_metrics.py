@@ -13,7 +13,8 @@ import utils
 from parse import (
     parse_loss,
     parse_optimizer,
-    parse_bayesian_model
+    parse_bayesian_model,
+    parse_frequentist_model
 )
 
 from statistics_np import AdaptableRHT
@@ -26,7 +27,7 @@ from sklearn.metrics import roc_auc_score, roc_curve
 from sklearn.metrics import precision_recall_curve, auc
 
 
-class BNNARHTTrainer(Trainer):
+class ARHTMetricsTrainer(Trainer):
     def __init__(self, config):
         super().__init__(config)
 
@@ -36,6 +37,7 @@ class BNNARHTTrainer(Trainer):
         ood_data_name = self.config_data["ood"]
         image_size = self.config_data["image_size"]
         in_channel = self.config_train["in_channels"]
+        self.out_channel = self.config_train["out_channels"]
 
         train_in = load_data(in_data_name, True, image_size, in_channel)
         test_in = load_data(in_data_name, False, image_size, in_channel)
@@ -58,11 +60,6 @@ class BNNARHTTrainer(Trainer):
         # https://github.com/kumar-shridhar/PyTorch-BayesianCNN/blob/master/main_bayesian.py
         # introduces other beta computations
         self.beta = self.config_train["beta"]
-
-    def get_ood_label_score(self, test_in_score, test_out_score):
-        score = np.concatenate([test_in_score, test_out_score])
-        label = np.concatenate((np.zeros(len(test_in_score)), np.ones(len(test_out_score))))
-        return label, score
 
     def train_one_step(self, data, label):
         self.optimzer.zero_grad()
@@ -97,7 +94,7 @@ class BNNARHTTrainer(Trainer):
             scores = torch.cat(scores)
 
         n_1 = scores.shape[0]
-        mean = scores.mean(0)
+        mean = scores.sum(0)
         cov = torch.matmul(scores.T, scores)
 
         return mean, cov, n_1
@@ -143,29 +140,47 @@ class BNNARHTTrainer(Trainer):
         lamb = tester.find_optimal_Q()
 
         t_stat = tester.adaptive_rht(lamb, mean_normal, test_mu, n_1, n_2, p)
-        rht = tester.rht(lamb, mean_normal, test_mu, n_1, n_2)
+        rht = tester.rht(self.config_train["init_lambda"] * 5, mean_normal, test_mu, n_1, n_2)
         # pvalues = min(stats.norm.cdf(t_stat), 1 - stats.norm.cdf(t_stat))
 
-        return t_stat
-        # return t_stat, rht
+        # Other scores
+        alphas = np.exp(scores)
+        alpha0 = np.sum(alphas, axis=2)
+        alpha0 = np.broadcast_to(alpha0[:, :, np.newaxis], alphas.shape)
+
+        alphas = torch.from_numpy(alphas)
+        alpha0 = torch.from_numpy(alpha0)
+
+        ent, conf = self.compute_entropy(alphas, alpha0)
+        diff_ent = self.compute_diff_entropy(alphas, alpha0)
+
+        return t_stat, rht, ent, conf, diff_ent
 
     def compute_entropy(self, alphas, alpha0):
         probs = alphas / alpha0
-        entropy = -torch.sum(probs*torch.log(probs), dim=1)
-        conf = torch.max(probs, dim=1).values
+        entropy = -torch.sum(probs*torch.log(probs), dim=2)
+        conf = torch.max(probs, dim=2).values
 
-        return entropy, conf
+        return entropy.mean(0).numpy(), conf.mean(0).numpy()
 
     def compute_diff_entropy(self, alphas, alpha0):
-        return torch.sum(
+        s = torch.sum(
             torch.lgamma(alphas) - (alphas - 1) * (torch.digamma(alphas) - torch.digamma(alpha0)),
-            dim=1) - torch.lgamma(alpha0)
+            dim=2) - torch.lgamma(alpha0[:, :, 0])
+
+        return s.mean(0).numpy()
 
     def validate(self, epoch):
 
         valid_loss_list = []
-        in_score_list = []
-        out_score_list = []
+        metric_names = ["t_stat", "rht", "ent", "conf", "diff_ent"]
+        in_score_dict = {}
+        out_score_dict = {}
+        metrics = {}
+
+        for m in metric_names:
+            in_score_dict[m] = []
+            out_score_dict[m] = []
 
         # Compute in-distribution mean and covariance
         cov_normal = 0
@@ -181,39 +196,39 @@ class BNNARHTTrainer(Trainer):
         for i, (data, label) in enumerate(self.test_in_loader):
             embs = self.get_embs(data)
             scores = self.compute_p_values(mean_normal, cov_normal, n_1, embs)
-            in_score_list.append(scores)
+            for mn, s in zip(metric_names, scores):
+                in_score_dict[mn].append(s)
 
         for i, (data, label) in enumerate(self.test_out_loader):
             embs = self.get_embs(data)
             scores = self.compute_p_values(mean_normal, cov_normal, n_1, embs)
-            out_score_list.append(scores)
+            for mn, s in zip(metric_names, scores):
+                out_score_dict[mn].append(s)
 
-        # Perform BH correction
-
-        in_scores = np.concatenate(in_score_list)
-        out_scores = np.concatenate(out_score_list)
+        for mn in metric_names:
+            in_score_dict[mn] = np.concatenate(in_score_dict[mn])
+            out_score_dict[mn] = np.concatenate(out_score_dict[mn])
 
         # Visualize the scores
-        self.visualize_scores(in_scores, out_scores, epoch)
+        # self.visualize_scores(in_scores, out_scores, epoch)
 
         labels_1 = torch.cat(
-            [torch.zeros(in_scores.shape),
-             torch.ones(out_scores.shape)]
+            [torch.zeros(in_score_dict["ent"].shape),
+             torch.ones(out_score_dict["ent"].shape)]
         ).detach().cpu().numpy()
 
         labels_2 = torch.cat(
-            [torch.ones(in_scores.shape),
-             torch.zeros(out_scores.shape)]
+            [torch.ones(in_score_dict["ent"].shape),
+             torch.zeros(out_score_dict["ent"].shape)]
         ).detach().cpu().numpy()
+        for mn in metric_names:
+            scores = np.concatenate([in_score_dict[mn], out_score_dict[mn]])
+            scores = self.format_scores(scores)
+            auroc, aupr, precision, recall = self.comp_aucs(scores, labels_1, labels_2)
+            metrics[f"{mn}_auroc"] = auroc
+            metrics[f"{mn}_aupr"] = aupr
 
-        scores = np.concatenate([in_scores, out_scores])
-        scores = self.format_scores(scores)
-
-        # Other scores
-
-        auroc, aupr, precision, recall = self.comp_aucs(scores, labels_1, labels_2)
-
-        return auroc, aupr, precision, recall
+        return metrics
 
     def train(self) -> None:
         print(f"Start training ARHT Uncertainty BNN...")
@@ -248,25 +263,22 @@ class BNNARHTTrainer(Trainer):
             labels = np.concatenate(labels)
             train_precision, train_recall, train_f1, train_aucroc = utils.metrics(probs, labels, average="weighted")
 
-            valid_auc, valid_aupr, precision, recall = self.validate(epoch)
+            val_metrics = self.validate(epoch)
 
             training_range.set_description(
                 'Epoch: {} \tTraining Loss: {:.4f} \tTraining Accuracy: {:.4f} \tValidation AUC: {:.4f} \tValidation AUPR: {:.4f} \tTrain_kl_div: {:.4f} \tTrain_nll: {:.4f}'.format(
-                    epoch, train_loss, train_acc, valid_auc, valid_aupr, train_kl, train_nll))
+                    epoch, train_loss, train_acc, val_metrics["t_stat_auroc"], val_metrics["t_stat_aupr"], train_kl, train_nll))
 
             # Update new checkpoints and remove old ones
             if self.save_steps and (epoch + 1) % self.save_steps == 0:
                 epoch_stats = {
                     "Epoch": epoch + 1,
-                    "Train Loss": train_loss,
                     "Train NLL Loss": train_nll,
                     "Train KL Loss": train_kl,
                     "Train Accuracy": train_acc,
-                    "Train F1": train_f1,
                     "Train AUC": train_aucroc,
-                    "Validation AUPR": valid_aupr,
-                    "Validation AUC": valid_auc,
                 }
+                epoch_stats.update(val_metrics)
 
                 # State dict of the model including embeddings
                 self.checkpoint_manager.write_new_version(

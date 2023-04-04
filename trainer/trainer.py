@@ -7,6 +7,9 @@ import torch
 from checkpoint import CheckpointManager
 from matplotlib import pyplot as plt
 
+from sklearn.metrics import roc_auc_score, roc_curve
+from sklearn.metrics import precision_recall_curve, auc
+
 
 class Trainer(ABC):
     def __init__(self, config: OrderedDict) -> None:
@@ -71,8 +74,9 @@ class Trainer(ABC):
             pth.mkdir()
 
         fig, ax = plt.subplots()
-        ax.hist(in_scores, bin=200, color="g")
-        ax.hist(out_scores, bin=200, color="r")
+        ax.hist(in_scores, bins=100, color="g", range=(0, 10000), label="in")
+        ax.hist(out_scores, bins=100, color="r", range=(0, 10000), label="ood", alpha=0.5)
+        ax.legend()
 
         plt.savefig(pth / f"scors_ep{epoch}.png")
 
@@ -93,3 +97,18 @@ class Trainer(ABC):
         scores[np.isnan(scores)] = 0
 
         return scores
+
+    def comp_aucs(self, scores, labels_1, labels_2):
+        auroc_1 = roc_auc_score(labels_1, scores)
+        auroc_2 = roc_auc_score(labels_2, scores)
+        auroc = max(auroc_1, auroc_2)
+
+        precision, recall, thresholds = precision_recall_curve(labels_1, scores)
+        aupr_1 = auc(recall, precision)
+
+        precision, recall, thresholds = precision_recall_curve(labels_2, scores)
+        aupr_2 = auc(recall, precision)
+
+        aupr = max(aupr_1, aupr_2)
+
+        return auroc, aupr, precision, recall

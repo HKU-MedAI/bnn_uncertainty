@@ -20,7 +20,7 @@ checkpoints:
 #### Optimizer settings
 optimizer:
   opt_method: "ADAM"
-  lr: 0.0005  # Learning rate
+  lr: 0.001  # Learning rate
   weight_decay: 0.001
 
 #### training settings: learning rate scheme, loss, optimizer
@@ -38,7 +38,7 @@ train:
   prior_mu: 0
   prior_sigma: 0.01
   posterior_mu_initial: [0, 0.05]
-  posterior_rho_initial: [-3, 0.01]
+  posterior_rho_initial: [-2.5, 0.01]
 
   init_lambda: 0.001
 

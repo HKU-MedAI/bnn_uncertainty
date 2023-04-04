@@ -1,5 +1,5 @@
 #### general settings
-name: BPN
+name: ARHT
 train_type: arht-uncertainty
 eval_type: bnn
 gpu_ids: [2]
@@ -9,11 +9,11 @@ gpu_ids: [2]
 dataset:
   image_size: 32
   in: "MNIST"
-  ood: "SVHN"
+  ood: "FashionMNIST"
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/BLeNet_ARHT_MNIST_SVHN/"
+  path: "./checkpoints/BLeNet_ARHT_MNIST_FashionMNIST/"
   save_checkpoint_freq: 2
 
 

@@ -5,31 +5,24 @@ from tqdm import tqdm
 
 import numpy as np
 from torch.utils.data import DataLoader
-from torch.nn import functional as F
 
 from .trainer import Trainer
-import utils
 
 from parse import (
-    parse_loss,
     parse_optimizer,
     parse_frequentist_model
 )
 from losses import EdlLoss
 
-import torchvision
 import torch
 
 from data import load_data
-from utils import one_hot_embedding
 
-from sklearn.metrics import roc_auc_score, roc_curve
+from sklearn.metrics import roc_auc_score
 from sklearn.metrics import precision_recall_curve, auc
 
 import torch.distributions as dist
 from torch.distributions.dirichlet import Dirichlet
-
-from .postnet.src.posterior_networks.run import run
 
 
 class PostNetTrainer(Trainer):

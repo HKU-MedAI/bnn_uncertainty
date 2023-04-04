@@ -126,7 +126,8 @@ def parse_bayesian_model(config_train, image_size=32):
         return BBB3Conv3FC(
             outputs=out_dim,
             inputs=in_dim,
-            priors=priors
+            priors=priors,
+            get_sig=is_de
         )
     elif model_name == "BMLP":
         n_blocks = config_train["n_blocks"]
@@ -183,7 +184,8 @@ def parse_frequentist_model(config_freq, image_size=32):
     elif model_name == "AlexNet":
         return AlexNet(
             inputs=in_dim,
-            outputs=out_dim
+            outputs=out_dim,
+            get_sig=is_de
         )
     elif model_name == "LeNet":
         return LeNet(
@@ -195,12 +197,14 @@ def parse_frequentist_model(config_freq, image_size=32):
     elif model_name == "ResNet":
         return ResNet(
             outputs=out_dim,
-            inputs=in_dim
+            inputs=in_dim,
+            get_sig=is_de
         )
     elif model_name == "CNN":
         return CNN(
             outputs=out_dim,
             inputs=in_dim,
+            get_sig=is_de
         )
     elif model_name == "MLP":
         n_blocks = config_freq["n_blocks"]

@@ -21,7 +21,7 @@ class AdaptableRHT:
         self.gamma = p / n
 
         self.cov = cov
-        self.priors = [0, 1, 0]
+        self.priors = [1, 1, 1]
 
         logger.debug("Computing regularized inverse covariance matrices")
         self.reg_inv_covs = [

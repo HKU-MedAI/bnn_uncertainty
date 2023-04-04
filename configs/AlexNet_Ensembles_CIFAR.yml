@@ -13,7 +13,7 @@ dataset:
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/LeNet_Ensembles_CIFAR10_SVHN/"
+  path: "./checkpoints/AlexNet_Ensembles_CIFAR10_SVHN/"
   save_checkpoint_freq: 2
 
 

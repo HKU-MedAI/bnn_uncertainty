@@ -23,7 +23,7 @@ parser.add_argument('-seed', type=int, help='random seed of the run', default=61
 args = parser.parse_args()
 
 opt_path = args.config
-default_config_path = "BLeNet_ARHT_CIFAR10.yml"
+default_config_path = "LeNet_MCD_CIFAR.yml"
 
 if opt_path == "":
     opt_path = CONFIG_DIR / default_config_path
@@ -95,7 +95,7 @@ def benchmark_datasets(config):
             for out_data in out_datasets:
                 config["dataset"]["in"] = in_data
                 config["dataset"]["ood"] = out_data
-                config["checkpoints"]["path"] = f"./checkpoints/{archi}_{name}_{in_data}_{out_data}_s{seed}"
+                config["checkpoints"]["path"] = f"./checkpoints/{name}/{archi}_{name}_{in_data}_{out_data}_s{seed}"
 
                 trainer = parse_trainer(config)
 
@@ -150,8 +150,8 @@ def main():
 
     # benchmark_lambda(config)
     # benchmark_sample_size(config)
-    # benchmark_datasets(config)
-    benchmark_dimensions(config)
+    benchmark_datasets(config)
+    # benchmark_dimensions(config)
     # benchmark_architectures(config)
 
 if __name__ == "__main__":

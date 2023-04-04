@@ -11,7 +11,7 @@ from layers import (
 class BBBAlexNet(nn.Module):
     '''The architecture of AlexNet with Bayesian Layers'''
 
-    def __init__(self, outputs, inputs, priors, image_size=32, activation_type='softplus'):
+    def __init__(self, outputs, inputs, priors, image_size=32, activation_type='softplus', de=False):
         super(BBBAlexNet, self).__init__()
 
         self.num_classes = outputs
@@ -56,7 +56,11 @@ class BBBAlexNet(nn.Module):
 
         self.classifier = BBBLinear(output_size_3 * output_size_3 * 256, outputs, bias=True, priors=self.priors)
 
-    def forward(self, x):
+        self.is_de = de
+        if de:
+            self.fc_sig = BBBLinear(output_size_3 * output_size_3 * 256, outputs, bias=True, priors=self.priors)
+
+    def forward(self, x, get_emb=False):
 
         x = self.convs[0](x)
         x = self.act(x)

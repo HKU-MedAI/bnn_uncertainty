@@ -7,21 +7,20 @@ gpu_ids: [2]
 
 #### datasets
 dataset:
-  name: "BDLB"
   image_size: 32
   in: "CIFAR10"
   ood: "SVHN"
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/BLeNet_ARHT_CIFAR10_FashionMNIST/"
+  path: "./checkpoints/BLeNet_ARHT_CIFAR10_SVHN/"
   save_checkpoint_freq: 2
 
 
 #### Optimizer settings
 optimizer:
   opt_method: "ADAM"
-  lr: 0.0005  # Learning rate
+  lr: 0.001  # Learning rate
   weight_decay: 0.001
 
 #### training settings: learning rate scheme, loss, optimizer
@@ -41,7 +40,7 @@ train:
   posterior_mu_initial: [0, 0.05]
   posterior_rho_initial: [-3, 0.01]
 
-  init_lambda: 0.01
+  init_lambda: 0.001
 
   in_channels: 3
   out_channels: 10

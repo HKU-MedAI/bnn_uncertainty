@@ -7,9 +7,10 @@ import torch.nn.functional as F
 
 
 class ResNet(nn.Module):
-    def __init__(self, outputs, inputs, image_size=256, activation_type='softplus'):
+    def __init__(self, outputs, inputs, image_size=256, activation_type='softplus', get_sig=False):
         super(ResNet, self).__init__()
 
+        self.get_sig = get_sig
         self.num_classes = outputs
 
         if activation_type == 'softplus':
@@ -23,10 +24,17 @@ class ResNet(nn.Module):
 
         self.out = nn.Linear(1000, outputs)
 
+        if get_sig:
+            self.out_sig = nn.Linear(1000, outputs)
+
     def forward(self, x):
 
         emb = self.model(x)
         out = self.out(emb)
+
+        if self.get_sig:
+            out_sig = self.out_sig(emb)
+            return out, out_sig
 
         return out
 

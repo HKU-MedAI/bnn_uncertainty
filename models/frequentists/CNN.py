@@ -11,9 +11,10 @@ class CNN(nn.Module):
     and 3 FC layers with Bayesian layers.
     """
 
-    def __init__(self, outputs, inputs, image_size=32, activation_type='softplus'):
+    def __init__(self, outputs, inputs, image_size=32, activation_type='softplus', get_sig=False):
         super(CNN, self).__init__()
 
+        self.get_sig = get_sig
         self.num_classes = outputs
 
         if activation_type == 'softplus':
@@ -31,6 +32,9 @@ class CNN(nn.Module):
         self.max_pool = nn.MaxPool2d(kernel_size=2)
         self.flat = nn.Flatten()
 
+        if get_sig:
+            self.fc_sig = nn.Linear(50, outputs, bias=True)
+
     def forward(self, x):
         x = self.conv1(x)
         x = self.max_pool(x)
@@ -44,9 +48,13 @@ class CNN(nn.Module):
         x = self.flat(x)
         x = self.fc1(x)
         x = self.act(x)
-        x = self.fc2(x)
+        out = self.fc2(x)
 
-        return x
+        if self.get_sig:
+            out_sig = self.fc_sig(x)
+            return out, out_sig
+
+        return out
 
     def mc_dropout(self, x, p):
         x = self.conv1(x)

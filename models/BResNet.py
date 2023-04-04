@@ -54,7 +54,7 @@ class BBBResNet(nn.Module):
         else:
             raise NotImplementedError
 
-    def forward(self, x):
+    def forward(self, x, get_emb=False):
 
         emb = self.model(x)
         out = self.out(emb)

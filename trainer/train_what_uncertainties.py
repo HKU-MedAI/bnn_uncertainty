@@ -77,16 +77,17 @@ class WhatUncertaintiesTrainer(Trainer):
     def train_one_step(self, data, label, epoch):
         self.optimzer.zero_grad()
 
-        label = utils.one_hot_embedding(label, self.n_classes).cuda()
+        label = label.to(self.device)
 
         # Training
         mu_train, sig_train = self.model(data)
         sig_train_pos = torch.log(1 + torch.exp(sig_train)) + 1e-6
+        sig_train_pos = sig_train_pos.mean(1)
 
-        loss = torch.mean(
-            0.5 * torch.log(sig_train_pos) + 0.5 * (torch.square(label - mu_train) / sig_train_pos)) + 1
-        kl_loss = self.model.kl_loss()
-        loss += kl_loss
+        loss = F.cross_entropy(mu_train, label, reduce=False)
+        loss = loss / sig_train_pos ** 2 / 2
+        loss += 0.5 * torch.log(sig_train_pos ** 2)
+        loss = loss.mean()
 
         self.optimzer.zero_grad()
         loss.backward()

@@ -1,4 +1,7 @@
 /data/
+./baselines/postnet/data
+./baselines/postnet/saved_models
+
 ./train_image/
 ./test_image/
 ./trainer/postnet

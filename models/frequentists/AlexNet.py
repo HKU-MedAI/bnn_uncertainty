@@ -8,9 +8,10 @@ from layers import (
 class AlexNet(nn.Module):
     '''The architecture of AlexNet with Bayesian Layers'''
 
-    def __init__(self, outputs, inputs, activation_type='softplus'):
+    def __init__(self, outputs, inputs, activation_type='softplus', get_sig=False):
         super(AlexNet, self).__init__()
 
+        self.get_sig = get_sig
         self.num_classes = outputs
 
         if activation_type == 'softplus':
@@ -41,6 +42,9 @@ class AlexNet(nn.Module):
         self.flatten = FlattenLayer(1 * 1 * 256)
         self.fc = nn.Linear(1 * 1 * 256, outputs, bias=True)
 
+        if self.get_sig:
+            self.fc_sig = nn.Linear(1 * 1 * 256, outputs, bias=True)
+
     def forward(self, x):
 
         x = self.conv1(x)
@@ -62,9 +66,13 @@ class AlexNet(nn.Module):
         x = self.pool3(x)
 
         x = self.flatten(x)
-        x = self.fc(x)
+        out = self.fc(x)
 
-        return x
+        if self.get_sig:
+            out_sig = self.fc_sig(x)
+            return out, out_sig
+
+        return out
 
     def mc_dropout(self, x, p):
         x = self.conv1(x)

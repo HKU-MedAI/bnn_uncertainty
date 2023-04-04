@@ -12,7 +12,9 @@ from trainer import (
     DPNTrainer,
     DeepEnsemblesTrainer,
     MCDTrainer,
-    WhatUncertaintiesTrainer
+    WhatUncertaintiesTrainer,
+    ARHTMetricsTrainer,
+    ARHTMetricsFreqTrainer
 )
 from utils import ordered_yaml
 
@@ -23,7 +25,7 @@ parser.add_argument('-seed', type=int, help='random seed of the run', default=61
 args = parser.parse_args()
 
 opt_path = args.config
-default_config_path = "ResNet_EDL_CIFAR.yml"
+default_config_path = "LeNet_ARHT_Metrics_CIFAR10.yml"
 
 if opt_path == "":
     opt_path = CONFIG_DIR / default_config_path
@@ -51,6 +53,10 @@ def main():
             trainer = BNNUncertaintyTrainer(config)
         elif config["train_type"] == "arht-uncertainty":
             trainer = BNNARHTTrainer(config)
+        elif config["train_type"] == "arht-metrics":
+            trainer = ARHTMetricsTrainer(config)
+        elif config["train_type"] == "arht-metrics-freq":
+            trainer = ARHTMetricsFreqTrainer(config)
         elif config["train_type"] == "edl":
             trainer = EDLTrainer(config)
         elif config["train_type"] == "dpn":

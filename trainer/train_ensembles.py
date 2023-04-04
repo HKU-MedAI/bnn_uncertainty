@@ -165,23 +165,7 @@ class DeepEnsemblesTrainer(Trainer):
 
         scores[np.isnan(scores)] = 0
 
-        def comp_aucs(scores, labels_1, labels_2):
-
-            auroc_1 = roc_auc_score(labels_1, scores)
-            auroc_2 = roc_auc_score(labels_2, scores)
-            auroc = max(auroc_1, auroc_2)
-
-            precision, recall, thresholds = precision_recall_curve(labels_1, scores)
-            aupr_1 = auc(recall, precision)
-
-            precision, recall, thresholds = precision_recall_curve(labels_2, scores)
-            aupr_2 = auc(recall, precision)
-
-            aupr = max(aupr_1, aupr_2)
-
-            return auroc, aupr, precision, recall
-
-        auroc, aupr, precision, recall = comp_aucs(scores, labels_1, labels_2)
+        auroc, aupr, precision, recall = self.comp_aucs(scores, labels_1, labels_2)
 
         return auroc, aupr, precision, recall
 

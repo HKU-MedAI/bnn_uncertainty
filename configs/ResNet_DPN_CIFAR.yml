@@ -1,6 +1,6 @@
 #### general settings
-name: BPN
-train_type: mcd
+name: DPN
+train_type: dpn
 eval_type: bnn
 gpu_ids: [2]
 
@@ -13,19 +13,19 @@ dataset:
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/AlexNet_MCD_CIFAR10_SVHN/"
+  path: "./checkpoints/ResNet_DPN_CIFAR10_SVHN/"
   save_checkpoint_freq: 2
 
 
 #### Optimizer settings
 optimizer:
   opt_method: "ADAM"
-  lr: 0.001  # Learning rate
+  lr: 0.0005  # Learning rate
   weight_decay: 0.001
 
 #### training settings: learning rate scheme, loss, optimizer
 train:
-  model_name: "AlexNet"
+  model_name: "ResNet"
 
   num_epochs: 100
   batch_size: 128
@@ -33,7 +33,5 @@ train:
 
   in_channels: 3
   out_channels: 10
-
-  n_testing_samples: 300
 
   loss: "ELBO"
