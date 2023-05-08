@@ -1,0 +1,1 @@
+from .detectron import infer_labels, detectron_tst

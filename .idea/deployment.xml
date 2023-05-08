@@ -61,7 +61,7 @@
       <paths name="r11user1@research11.saas.hku.hk:22 password (3)">
         <serverdata>
           <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/bnn_uncertainty" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

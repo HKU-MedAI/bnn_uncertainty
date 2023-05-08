@@ -17,7 +17,7 @@ sys.path.append(os.getcwd())
 from src.posterior_networks.run import run
 
 # Dataset parameters
-seed_dataset = 123
+seed_dataset = 1
 directory_dataset = './data'
 dataset_name = 'MNIST'
 ood_dataset_names = ['FashionMNIST']
@@ -27,7 +27,7 @@ transform_min = 0.
 transform_max = 255.
 
 # Architecture parameters
-seed_model = 123
+seed_model = 11
 directory_model = './saved_models'
 architecture = 'conv'
 input_dims = [28, 28, 1]

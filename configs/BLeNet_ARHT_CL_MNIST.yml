@@ -1,0 +1,49 @@
+#### general settings
+name: ARHT
+train_type: arht-cl
+eval_type: bnn
+gpu_ids: [2]
+
+
+#### datasets
+dataset:
+  image_size: 32
+  in: "MNIST"
+  ood: "Omniglot"
+
+#### Checkpoint settings
+checkpoints:
+  path: "./checkpoints/BLeNet_ARHT_CL_MNIST_Omniglot/"
+  save_checkpoint_freq: 2
+
+
+#### Optimizer settings
+optimizer:
+  opt_method: "ADAM"
+  lr: 0.0005 # Learning rate
+  weight_decay: 0.001
+
+#### training settings: learning rate scheme, loss, optimizer
+train:
+  model_name: "BLeNet"
+
+  num_epochs: 100
+  batch_size: 128
+  train_size: 1
+
+  n_normal_samples: 3
+  n_testing_samples: 300
+
+  beta: 0.00001
+  prior_mu: 0
+  prior_sigma: 0.01
+  posterior_mu_initial: [0, 0.05]
+  posterior_rho_initial: [-3.5, 0.01]
+
+  init_lambda: 0.01
+
+  in_channels: 3
+  out_channels: 10
+  emb_dim: 16
+
+  loss: "ELBO"

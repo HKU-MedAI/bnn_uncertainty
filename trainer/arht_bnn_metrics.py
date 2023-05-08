@@ -84,8 +84,6 @@ class ARHTMetricsTrainer(Trainer):
 
     def compute_normal_posterior(self, data):
 
-        # Develop
-
         data = data.to(self.device)
 
         # Monte Carlo samples from different dropout mask at test time
@@ -94,10 +92,11 @@ class ARHTMetricsTrainer(Trainer):
             scores = torch.cat(scores)
 
         n_1 = scores.shape[0]
-        mean = scores.sum(0)
-        cov = torch.matmul(scores.T, scores)
+        s = scores.sum(0)
+        diffs = scores - scores.mean(0)
+        cov = torch.matmul(diffs.T, diffs)
 
-        return mean, cov, n_1
+        return s, cov, n_1
 
     def tune_lambda(self, tester, lambdas, priors):
         q_values = [tester.Q_function(lamb, priors) for lamb in lambdas]
@@ -126,7 +125,7 @@ class ARHTMetricsTrainer(Trainer):
 
         # Compute mean and variance of testing embeddings
         test_mu = scores.mean(0)
-        test_cov = np.einsum("ikj, ikl -> kjl", scores, scores)
+        test_cov = np.einsum("ikj, ikl -> kjl", (scores - test_mu), (scores - test_mu))
 
         lamb = self.config_train["init_lambda"]
         lambdas = [lamb, lamb * 5, lamb * 10, lamb * 50]
@@ -156,20 +155,6 @@ class ARHTMetricsTrainer(Trainer):
 
         return t_stat, rht, ent, conf, diff_ent
 
-    def compute_entropy(self, alphas, alpha0):
-        probs = alphas / alpha0
-        entropy = -torch.sum(probs*torch.log(probs), dim=2)
-        conf = torch.max(probs, dim=2).values
-
-        return entropy.mean(0).numpy(), conf.mean(0).numpy()
-
-    def compute_diff_entropy(self, alphas, alpha0):
-        s = torch.sum(
-            torch.lgamma(alphas) - (alphas - 1) * (torch.digamma(alphas) - torch.digamma(alpha0)),
-            dim=2) - torch.lgamma(alpha0[:, :, 0])
-
-        return s.mean(0).numpy()
-
     def validate(self, epoch):
 
         valid_loss_list = []
@@ -184,24 +169,24 @@ class ARHTMetricsTrainer(Trainer):
 
         # Compute in-distribution mean and covariance
         cov_normal = 0
-        mean_normal = 0
+        sum_normal = 0
         n_1 = 0
         for i, (data, label) in enumerate(self.train_in_loader):
             mu, cov, n = self.compute_normal_posterior(data)
             cov_normal += cov
-            mean_normal += mu
+            sum_normal += mu
             n_1 += n
 
         # Compute p values
         for i, (data, label) in enumerate(self.test_in_loader):
             embs = self.get_embs(data)
-            scores = self.compute_p_values(mean_normal, cov_normal, n_1, embs)
+            scores = self.compute_p_values(sum_normal, cov_normal, n_1, embs)
             for mn, s in zip(metric_names, scores):
                 in_score_dict[mn].append(s)
 
         for i, (data, label) in enumerate(self.test_out_loader):
             embs = self.get_embs(data)
-            scores = self.compute_p_values(mean_normal, cov_normal, n_1, embs)
+            scores = self.compute_p_values(sum_normal, cov_normal, n_1, embs)
             for mn, s in zip(metric_names, scores):
                 out_score_dict[mn].append(s)
 
@@ -224,7 +209,7 @@ class ARHTMetricsTrainer(Trainer):
         for mn in metric_names:
             scores = np.concatenate([in_score_dict[mn], out_score_dict[mn]])
             scores = self.format_scores(scores)
-            auroc, aupr, precision, recall = self.comp_aucs(scores, labels_1, labels_2)
+            auroc, aupr, precision, recall = self.comp_aucs_ood(scores, labels_1, labels_2)
             metrics[f"{mn}_auroc"] = auroc
             metrics[f"{mn}_aupr"] = aupr
 

@@ -20,7 +20,7 @@ checkpoints:
 #### Optimizer settings
 optimizer:
   opt_method: "ADAM"
-  lr: 0.001  # Learning rate
+  lr: 0.005  # Learning rate
   weight_decay: 0.001
 
 #### training settings: learning rate scheme, loss, optimizer
@@ -31,12 +31,10 @@ train:
   batch_size: 128
   train_size: 1
 
-  n_normal_samples: 5
-
-  init_lambda: 0.001
+  init_lambda: 0.01
 
   in_channels: 3
   out_channels: 10
-  emb_dim: 10
+  emb_dim: 128
 
   loss: "ELBO"

@@ -37,11 +37,16 @@ class DPNTrainer(Trainer):
         image_size = self.config_data["image_size"]
         in_data_name = self.config_data["in"]
         ood_data_name = self.config_data["ood"]
+        try:
+            test_in_name = self.config_data["test_in"]
+        except KeyError:
+            test_in_name = in_data_name
+
         in_channel = self.config_train["in_channels"]
+        self.average = "binary" if self.config_train["out_channels"] == 2 else "weighted"
 
         train_in = load_data(in_data_name, True, image_size, in_channel)
-        test_in = load_data(in_data_name, False, image_size, in_channel)
-        train_out = load_data(ood_data_name, True, image_size, in_channel)
+        test_in = load_data(test_in_name, False, image_size, in_channel)
         test_out = load_data(ood_data_name, False, image_size, in_channel)
 
         self.train_in_loader = DataLoader(train_in, batch_size=self.batch_size, shuffle=True)
@@ -58,7 +63,7 @@ class DPNTrainer(Trainer):
     def target_alpha(targets):
         target = targets.numpy()
 
-        def gen_onehot(category, total_cat=10):
+        def gen_onehot(category, total_cat=2):
             label = np.ones(total_cat)
             label[category] = 20
             return label
@@ -66,7 +71,7 @@ class DPNTrainer(Trainer):
         target_alphas = []
         for i in target:
             if i == 10:
-                target_alphas.append(np.ones(10))
+                target_alphas.append(np.ones(2))
             else:
                 target_alphas.append(gen_onehot(i))
         return torch.Tensor(target_alphas)
@@ -99,10 +104,6 @@ class DPNTrainer(Trainer):
         # Develop
 
         data = data.to(self.device)
-
-        # Monte Carlo samples from different dropout mask at test time
-        with torch.no_grad():
-            scores = self.model(data)
 
         # s = [torch.exp(a) for a in scores]
         # s0 = [torch.sum(a, dim=0, keepdim=True) for a in s]
@@ -157,32 +158,39 @@ class DPNTrainer(Trainer):
         ent_scores = self.format_scores(ent_scores)
         conf_scores = self.format_scores(conf_scores)
 
-        def comp_aucs(scores, labels_1, labels_2):
-
-            auroc_1 = roc_auc_score(labels_1, scores)
-            auroc_2 = roc_auc_score(labels_2, scores)
-            auroc = max(auroc_1, auroc_2)
-
-            precision, recall, thresholds = precision_recall_curve(labels_1, scores)
-            aupr_1 = auc(recall, precision)
-
-            precision, recall, thresholds = precision_recall_curve(labels_2, scores)
-            aupr_2 = auc(recall, precision)
-
-            aupr = max(aupr_1, aupr_2)
-
-            return auroc, aupr
-
-        ent_auroc, ent_aupr = comp_aucs(ent_scores, labels_1, labels_2)
-        conf_auroc, conf_aupr = comp_aucs(conf_scores, labels_1, labels_2)
+        ent_auroc, ent_aupr, _, _  = self.comp_aucs_ood(ent_scores, labels_1, labels_2)
+        conf_auroc, conf_aupr, _, _  = self.comp_aucs_ood(conf_scores, labels_1, labels_2)
 
         return ent_auroc, ent_aupr, conf_auroc, conf_aupr
+
+    def test_classification(self):
+        labels_list = []
+        scores_list = []
+        for i, (data, label) in enumerate(self.test_in_loader):
+            data = data.to(self.device)
+            with torch.no_grad():
+                scores = self.model(data)
+            labels_list.append(label)
+            scores_list.append(scores)
+
+        labels = torch.cat(labels_list).detach().cpu()
+        scores = torch.cat(scores_list).detach().cpu().softmax(1)
+
+        precision, recall, f1, classf_auroc = utils.metrics(scores, labels, self.average)
+        clasff_accuracy = utils.acc(scores, labels)
+
+        return {
+            "classf_auroc": classf_auroc,
+            "classf_acc": clasff_accuracy,
+            "classf_f1": f1
+        }
 
     def train(self) -> None:
         print(f"Start training Uncertainty BNN...")
 
         training_range = tqdm(range(self.n_epoch))
         for epoch in training_range:
+            epoch_stats = {"Epoch": epoch + 1}
             training_loss_list = []
             labels = []
 
@@ -197,20 +205,24 @@ class DPNTrainer(Trainer):
 
             train_loss = np.mean(training_loss_list)
 
+            # OOD Detection
             valid_auc, valid_aupr, precision, recall = self.validate(epoch)
+            epoch_stats.update({
+                "Train Loss": train_loss,
+                "Validation AUPR": valid_aupr,
+                "Validation AUC": valid_auc,
+            })
 
             training_range.set_description(
                 'Epoch: {} \tTraining Loss: {:.4f} \tValidation AUC: {:.4f} \tValidation AUPR: {:.4f}'.format(
                     epoch, train_loss, valid_auc, valid_aupr))
 
+            # Classification
+            classf_metrics = self.test_classification()
+            epoch_stats.update(classf_metrics)
+
             # Update new checkpoints and remove old ones
             if self.save_steps and (epoch + 1) % self.save_steps == 0:
-                epoch_stats = {
-                    "Epoch": epoch + 1,
-                    "Train Loss": train_loss,
-                    "Validation AUPR": valid_aupr,
-                    "Validation AUC": valid_auc,
-                }
 
                 # State dict of the model including embeddings
                 self.checkpoint_manager.write_new_version(

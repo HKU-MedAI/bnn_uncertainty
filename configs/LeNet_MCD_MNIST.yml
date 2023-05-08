@@ -13,7 +13,7 @@ dataset:
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/LeNet_MCD_CIFAR10_SVHN/"
+  path: "./checkpoints/LeNet_MCD_C/"
   save_checkpoint_freq: 2
 
 

@@ -9,11 +9,11 @@ gpu_ids: [2]
 dataset:
   image_size: 32
   in: "MNIST"
-  ood: "FashionMNIST"
+  ood: "SVHN"
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/BLeNet_ARHT_MNIST_FashionMNIST/"
+  path: "./checkpoints/BLeNet_MNIST/"
   save_checkpoint_freq: 2
 
 
@@ -26,6 +26,7 @@ optimizer:
 #### training settings: learning rate scheme, loss, optimizer
 train:
   model_name: "BLeNet"
+  task: "classf"
 
   num_epochs: 100
   batch_size: 200

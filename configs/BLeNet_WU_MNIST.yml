@@ -13,7 +13,7 @@ dataset:
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/BLeNet_WU_MNIST_FashionMNIST/"
+  path: "./checkpoints/BLeNet_WU_MNIST/"
   save_checkpoint_freq: 2
 
 

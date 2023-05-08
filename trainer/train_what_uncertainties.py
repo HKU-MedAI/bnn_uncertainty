@@ -37,11 +37,16 @@ class WhatUncertaintiesTrainer(Trainer):
         image_size = self.config_data["image_size"]
         in_data_name = self.config_data["in"]
         ood_data_name = self.config_data["ood"]
+        try:
+            test_in_name = self.config_data["test_in"]
+        except KeyError:
+            test_in_name = in_data_name
+
         in_channel = self.config_train["in_channels"]
+        self.average = "binary" if self.config_train["out_channels"] == 2 else "weighted"
 
         train_in = load_data(in_data_name, True, image_size, in_channel)
-        test_in = load_data(in_data_name, False, image_size, in_channel)
-        train_out = load_data(ood_data_name, True, image_size, in_channel)
+        test_in = load_data(test_in_name, False, image_size, in_channel)
         test_out = load_data(ood_data_name, False, image_size, in_channel)
 
         self.train_in_loader = DataLoader(train_in, batch_size=self.batch_size, shuffle=True)
@@ -81,7 +86,8 @@ class WhatUncertaintiesTrainer(Trainer):
 
         # Training
         mu_train, sig_train = self.model(data)
-        sig_train_pos = torch.log(1 + torch.exp(sig_train)) + 1e-6
+        sig_train = F.normalize(sig_train, dim=1)
+        sig_train_pos = torch.log(1 + torch.exp(sig_train)) + 1e-4
         sig_train_pos = sig_train_pos.mean(1)
 
         loss = F.cross_entropy(mu_train, label, reduce=False)
@@ -142,43 +148,41 @@ class WhatUncertaintiesTrainer(Trainer):
 
         scores = np.concatenate([in_scores, out_scores])
 
-        index = np.isposinf(scores)
-        scores[np.isposinf(scores)] = 1e9
-        maximum = np.amax(scores)
-        scores[np.isposinf(scores)] = maximum + 1
+        scores = self.format_scores(scores)
 
-        index = np.isneginf(scores)
-        scores[np.isneginf(scores)] = -1e9
-        minimum = np.amin(scores)
-        scores[np.isneginf(scores)] = minimum - 1
-
-        scores[np.isnan(scores)] = 0
-
-        def comp_aucs(scores, labels_1, labels_2):
-
-            auroc_1 = roc_auc_score(labels_1, scores)
-            auroc_2 = roc_auc_score(labels_2, scores)
-            auroc = max(auroc_1, auroc_2)
-
-            precision, recall, thresholds = precision_recall_curve(labels_1, scores)
-            aupr_1 = auc(recall, precision)
-
-            precision, recall, thresholds = precision_recall_curve(labels_2, scores)
-            aupr_2 = auc(recall, precision)
-
-            aupr = max(aupr_1, aupr_2)
-
-            return auroc, aupr, precision, recall
-
-        auroc, aupr, precision, recall = comp_aucs(scores, labels_1, labels_2)
+        auroc, aupr, precision, recall = self.comp_aucs_ood(scores, labels_1, labels_2)
 
         return auroc, aupr, precision, recall
+
+    def test_classification(self):
+        labels_list = []
+        scores_list = []
+        for i, (data, label) in enumerate(self.test_in_loader):
+            data = data.to(self.device)
+            with torch.no_grad():
+                preds = [self.model(data) for _ in range(20)]
+                scores = torch.stack([p[0] for p in preds]).mean(0)
+            labels_list.append(label)
+            scores_list.append(scores)
+
+        labels = torch.cat(labels_list).detach().cpu()
+        scores = torch.cat(scores_list).detach().cpu().softmax(1)
+
+        precision, recall, f1, classf_auroc = utils.metrics(scores, labels, self.average)
+        clasff_accuracy = utils.acc(scores, labels)
+
+        return {
+            "classf_auroc": classf_auroc,
+            "classf_acc": clasff_accuracy,
+            "classf_f1": f1
+        }
 
     def train(self) -> None:
         print(f"Start training Uncertainty BNN...")
 
         training_range = tqdm(range(self.n_epoch))
         for epoch in training_range:
+            epoch_stats = {"Epoch": epoch + 1}
             training_loss_list = []
             labels = []
 
@@ -193,21 +197,24 @@ class WhatUncertaintiesTrainer(Trainer):
 
             train_loss = np.mean(training_loss_list)
 
+            # OOD Detection
             valid_auc, valid_aupr, precision, recall = self.validate(epoch)
+            epoch_stats.update({
+                "Train Loss": train_loss,
+                "Validation AUPR": valid_aupr,
+                "Validation AUC": valid_auc,
+            })
+
+            # Classification
+            classf_metrics = self.test_classification()
+            epoch_stats.update(classf_metrics)
 
             training_range.set_description(
-                'Epoch: {} \tTraining Loss: {:.4f} \tValidation AUC: {:.4f} \tValidation AUPR: {:.4f}'.format(
-                    epoch, train_loss, valid_auc, valid_aupr))
+                'Epoch: {} \tTraining Loss: {:.4f} \tValidation AUC: {:.4f} \tValidation AUPR: {:.4f} \tClassf AUROC: {:.4f}'.format(
+                    epoch, train_loss, valid_auc, valid_aupr, classf_metrics["classf_auroc"]))
 
             # Update new checkpoints and remove old ones
             if self.save_steps and (epoch + 1) % self.save_steps == 0:
-                epoch_stats = {
-                    "Epoch": epoch + 1,
-                    "Train Loss": train_loss,
-                    "Validation AUPR": valid_aupr,
-                    "Validation AUC": valid_auc,
-                }
-
                 # State dict of the model including embeddings
                 self.checkpoint_manager.write_new_version(
                     self.config,

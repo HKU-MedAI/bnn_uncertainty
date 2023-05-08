@@ -151,14 +151,16 @@ def parse_bayesian_model(config_train, image_size=32):
             outputs=out_dim,
             inputs=in_dim,
             priors=priors,
-            image_size=image_size
+            image_size=image_size,
+            de=is_de
         )
         return model
     elif model_name == "BResNet":
         return BBBResNet(
             outputs=out_dim,
             inputs=in_dim,
-            priors=priors
+            priors=priors,
+            get_sig=is_de
         )
     else:
         raise NotImplementedError("This Model is not implemented")

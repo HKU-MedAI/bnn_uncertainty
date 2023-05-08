@@ -7,6 +7,7 @@ import yaml
 from globals import *
 from trainer import (
     BNNUncertaintyTrainer,
+    BNNARHTCLTrainer,
     BNNARHTTrainer,
     EDLTrainer,
     DPNTrainer,
@@ -25,7 +26,7 @@ parser.add_argument('-seed', type=int, help='random seed of the run', default=61
 args = parser.parse_args()
 
 opt_path = args.config
-default_config_path = "LeNet_ARHT_Metrics_CIFAR10.yml"
+default_config_path = "BLeNet_WU_Diabetes.yml"
 
 if opt_path == "":
     opt_path = CONFIG_DIR / default_config_path
@@ -53,6 +54,8 @@ def main():
             trainer = BNNUncertaintyTrainer(config)
         elif config["train_type"] == "arht-uncertainty":
             trainer = BNNARHTTrainer(config)
+        elif config["train_type"] == "arht-cl":
+            trainer = BNNARHTCLTrainer(config)
         elif config["train_type"] == "arht-metrics":
             trainer = ARHTMetricsTrainer(config)
         elif config["train_type"] == "arht-metrics-freq":

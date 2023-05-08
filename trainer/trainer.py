@@ -39,43 +39,14 @@ class Trainer(ABC):
     def train(self) -> None:
         raise NotImplementedError
 
-    def visualize_conf_interval(self, pred, label, x):
-        """
-        Visualize confidence interval for regressors
-        pred: (S, N)
-        label (N) ground truth of the function
-        """
-        pth = self.checkpoint_manager.path / "conf_int.png"
-        labels_path = self.checkpoint_manager.path / "labels.npy"
-        pred_path = self.checkpoint_manager.path / "pred.npy"
-
-        upper = np.max(pred, axis=0)
-        lower = np.min(pred, axis=0)
-
-        indices = np.argsort(x[:, 0])
-
-        fig, ax = plt.subplots()
-        ax.plot(x[indices, 0], label[indices])
-        ax.fill_between(x[indices, 0], lower[indices], upper[indices], color='b', alpha=.1)
-
-        plt.xlim([-5, 5])
-        plt.ylim([-200, 200])
-
-        # Save figure to checkpoint
-        plt.savefig(pth)
-
-        # Save labels
-        np.save(labels_path, label)
-        np.save(pred_path, pred)
-
     def visualize_scores(self, in_scores, out_scores, epoch):
         pth = self.checkpoint_manager.path / "visualizations"
         if not pth.exists():
             pth.mkdir()
 
         fig, ax = plt.subplots()
-        ax.hist(in_scores, bins=100, color="g", range=(0, 10000), label="in")
-        ax.hist(out_scores, bins=100, color="r", range=(0, 10000), label="ood", alpha=0.5)
+        ax.hist(in_scores, bins=100, color="g", range=(-1000, 5000), label="in", alpha=0.6)
+        ax.hist(out_scores, bins=100, color="r", range=(-1000, 5000), label="ood", alpha=0.5)
         ax.legend()
 
         plt.savefig(pth / f"scors_ep{epoch}.png")
@@ -98,7 +69,7 @@ class Trainer(ABC):
 
         return scores
 
-    def comp_aucs(self, scores, labels_1, labels_2):
+    def comp_aucs_ood(self, scores, labels_1, labels_2):
         auroc_1 = roc_auc_score(labels_1, scores)
         auroc_2 = roc_auc_score(labels_2, scores)
         auroc = max(auroc_1, auroc_2)
@@ -112,3 +83,17 @@ class Trainer(ABC):
         aupr = max(aupr_1, aupr_2)
 
         return auroc, aupr, precision, recall
+
+    def compute_entropy(self, alphas, alpha0):
+        probs = alphas / alpha0
+        entropy = -torch.sum(probs*torch.log(probs), dim=2)
+        conf = torch.max(probs, dim=2).values
+
+        return entropy.mean(0).numpy(), conf.mean(0).numpy()
+
+    def compute_diff_entropy(self, alphas, alpha0):
+        s = torch.sum(
+            torch.lgamma(alphas) - (alphas - 1) * (torch.digamma(alphas) - torch.digamma(alpha0)),
+            dim=2) - torch.lgamma(alpha0[:, :, 0])
+
+        return s.mean(0).numpy()

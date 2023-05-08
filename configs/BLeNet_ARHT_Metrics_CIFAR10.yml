@@ -31,7 +31,7 @@ train:
   batch_size: 128
   train_size: 1
 
-  n_normal_samples: 5
+  n_normal_samples: 3
   n_testing_samples: 200
 
   beta: 0.0001
@@ -44,6 +44,6 @@ train:
 
   in_channels: 3
   out_channels: 10
-  emb_dim: 10
+  emb_dim: 64
 
   loss: "ELBO"

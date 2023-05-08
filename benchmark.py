@@ -23,7 +23,7 @@ parser.add_argument('-seed', type=int, help='random seed of the run', default=61
 args = parser.parse_args()
 
 opt_path = args.config
-default_config_path = "LeNet_MCD_CIFAR.yml"
+default_config_path = "BLeNet_ARHT_CIFAR10.yml"
 
 if opt_path == "":
     opt_path = CONFIG_DIR / default_config_path
@@ -84,8 +84,10 @@ def benchmark_sample_size(config):
 def benchmark_datasets(config):
     name = config["name"]
     archi = config["train"]["model_name"]
-    in_datasets = ["MNIST", "CIFAR10"]
-    out_datasets = ["FashionMNIST", "Omiglot", "SVHN"]
+    # in_datasets = ["MNIST", "CIFAR10"]
+    in_datasets = ["MNIST"]
+    # out_datasets = ["FashionMNIST", "Omiglot", "SVHN"]
+    out_datasets = ["SVHN"]
 
     for seed in range(5):
         s = hash(seed)

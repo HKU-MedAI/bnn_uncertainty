@@ -7,6 +7,7 @@ from .uncertainty_bnn import BNNUncertaintyTrainer
 from .arht_bnn import BNNARHTTrainer
 from .arht_bnn_metrics import ARHTMetricsTrainer
 from .arht_bnn_metrics_freq import ARHTMetricsFreqTrainer
+from .arht_bnn_cl import BNNARHTCLTrainer
 from .train_edl import EDLTrainer
 from .train_dpn import DPNTrainer
 from .train_ensembles import DeepEnsemblesTrainer

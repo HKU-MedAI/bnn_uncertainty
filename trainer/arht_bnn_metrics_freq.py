@@ -49,17 +49,10 @@ class ARHTMetricsFreqTrainer(Trainer):
         self.test_in_loader = DataLoader(test_in, batch_size=self.batch_size, shuffle=True)
         self.test_out_loader = DataLoader(test_out, batch_size=self.batch_size, shuffle=True)
 
-        self.n_noraml_samples = self.config_train["n_normal_samples"]
-        self.n_test_samples = self.config_train["n_testing_samples"]
-        self.model = parse_frequentist_model(self.config_train, image_size=image_size)
+        self.model = parse_frequentist_model(self.config_train, image_size=image_size).cuda()
         self.optimzer = parse_optimizer(self.config_optim, self.model.parameters())
 
         self.loss_fcn = parse_loss(self.config_train)
-
-        # Define beta for ELBO computations
-        # https://github.com/kumar-shridhar/PyTorch-BayesianCNN/blob/master/main_bayesian.py
-        # introduces other beta computations
-        self.beta = self.config_train["beta"]
 
     def train_one_step(self, data, label):
         self.optimzer.zero_grad()
@@ -69,10 +62,9 @@ class ARHTMetricsFreqTrainer(Trainer):
         if pred.dim() > 2:
             pred = pred.mean(0)
 
-        kl_loss = self.model.kl_loss()
         ce_loss = F.cross_entropy(pred, label, reduction='mean')
 
-        loss = ce_loss + kl_loss.item() * self.beta
+        loss = ce_loss
         # loss = ce_loss
         loss.backward()
 
@@ -80,7 +72,7 @@ class ARHTMetricsFreqTrainer(Trainer):
 
         acc = utils.acc(pred.data, label)
 
-        return loss.item(), kl_loss.item(), ce_loss.item(), acc, pred
+        return loss.item(), ce_loss.item(), acc, pred
 
     def compute_normal_posterior(self, data):
 
@@ -223,7 +215,7 @@ class ARHTMetricsFreqTrainer(Trainer):
         for mn in metric_names:
             scores = np.concatenate([in_score_dict[mn], out_score_dict[mn]])
             scores = self.format_scores(scores)
-            auroc, aupr, precision, recall = self.comp_aucs(scores, labels_1, labels_2)
+            auroc, aupr, precision, recall = self.comp_aucs_ood(scores, labels_1, labels_2)
             metrics[f"{mn}_auroc"] = auroc
             metrics[f"{mn}_aupr"] = aupr
 
@@ -235,7 +227,6 @@ class ARHTMetricsFreqTrainer(Trainer):
         training_range = tqdm(range(self.n_epoch))
         for epoch in training_range:
             training_loss_list = []
-            kl_list = []
             nll_list = []
             acc_list = []
             probs = []
@@ -245,18 +236,16 @@ class ARHTMetricsFreqTrainer(Trainer):
                 data = data.to(self.device)
                 label = label.to(self.device)
 
-                res, kl, nll, acc, log_outputs = self.train_one_step(data, label)
+                res, nll, acc, log_outputs = self.train_one_step(data, label)
 
                 training_loss_list.append(res)
-                kl_list.append(kl)
                 nll_list.append(nll)
                 acc_list.append(acc)
 
                 probs.append(log_outputs.softmax(1).detach().cpu().numpy())
                 labels.append(label.detach().cpu().numpy())
 
-            train_loss, train_acc, train_kl, train_nll = np.mean(training_loss_list), np.mean(acc_list), np.mean(
-                kl_list), np.mean(nll_list)
+            train_loss, train_acc, train_nll = np.mean(training_loss_list), np.mean(acc_list), np.mean(nll_list)
 
             probs = np.concatenate(probs)
             labels = np.concatenate(labels)
@@ -265,15 +254,14 @@ class ARHTMetricsFreqTrainer(Trainer):
             val_metrics = self.validate(epoch)
 
             training_range.set_description(
-                'Epoch: {} \tTraining Loss: {:.4f} \tTraining Accuracy: {:.4f} \tValidation AUC: {:.4f} \tValidation AUPR: {:.4f} \tTrain_kl_div: {:.4f} \tTrain_nll: {:.4f}'.format(
-                    epoch, train_loss, train_acc, val_metrics["t_stat_auroc"], val_metrics["t_stat_aupr"], train_kl, train_nll))
+                'Epoch: {} \tTraining Loss: {:.4f} \tTraining Accuracy: {:.4f} \tValidation AUC: {:.4f} \tValidation AUPR: {:.4f} \tTrain_nll: {:.4f}'.format(
+                    epoch, train_loss, train_acc, val_metrics["t_stat_auroc"], val_metrics["t_stat_aupr"],  train_nll))
 
             # Update new checkpoints and remove old ones
             if self.save_steps and (epoch + 1) % self.save_steps == 0:
                 epoch_stats = {
                     "Epoch": epoch + 1,
                     "Train NLL Loss": train_nll,
-                    "Train KL Loss": train_kl,
                     "Train Accuracy": train_acc,
                     "Train AUC": train_aucroc,
                 }

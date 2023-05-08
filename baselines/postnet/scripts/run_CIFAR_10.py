@@ -18,7 +18,7 @@ sys.path.append(os.getcwd())
 from src.posterior_networks.run import run
 
 # Dataset parameters
-seed_dataset = 123
+seed_dataset = 1
 directory_dataset = './data'
 dataset_name = 'CIFAR10'
 ood_dataset_names = ['SVHN']

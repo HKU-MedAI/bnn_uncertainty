@@ -13,7 +13,7 @@ dataset:
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/LeNet_DPN_CIFAR10_Omiglot/"
+  path: "./checkpoints/LeNet_DPN_CIFAR10/"
   save_checkpoint_freq: 2
 
 
