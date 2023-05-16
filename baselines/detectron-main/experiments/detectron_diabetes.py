@@ -43,7 +43,7 @@ p_train, p_val, p_test_all = sample_data.diabetes(split='all')
 q_all = sample_data.diabetes(split="test")
 
 test_sets = {'p': p_test_all, 'q': q_all}
-base_model = ResNet(inputs=3, outputs=10)
+base_model = LeNet(inputs=3, outputs=10)
 
 # hyperparams ---------------------------------------------
 max_epochs_per_model = args.max_epochs_per_model
@@ -159,7 +159,7 @@ for N in map(int, args.samples):
                 # Note 1: we use lambda in the paper, but it is a reserved keyword, so we call it alpha here
                 # Note 2: we use a custom batch sampler which slightly changes the way you compute lambda
                 alpha = 1 / (len(pq_loader.train_dataloader()) * count + 1)
-                detector = DetectronModule(model=ResNet(inputs=3, outputs=10),
+                detector = DetectronModule(model=LeNet(inputs=3, outputs=10),
                                            alpha=alpha)
                 print(f'α = {1000 * alpha:.3f} × 10⁻³')
 

@@ -7,21 +7,21 @@ gpu_ids: [2]
 
 #### datasets
 dataset:
-  image_size: 64
+  image_size: 32
   in: "diabetes_train"
   test_in: "diabetes_test_in"
   ood: "diabetes_test_ood"
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/LeNet_EDL_Diabetes/"
+  path: "./checkpoints/LeNet_EDL_Diabetes_f2/"
   save_checkpoint_freq: 2
 
 
 #### Optimizer settings
 optimizer:
   opt_method: "ADAM"
-  lr: 0.0005  # Learning rate
+  lr: 0.0001  # Learning rate
   weight_decay: 0.001
 
 #### training settings: learning rate scheme, loss, optimizer

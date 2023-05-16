@@ -1,3 +1,0 @@
-from bdlb.diabetic_retinopathy_diagnosis.benchmark import DiabeticRetinopathyDiagnosisBecnhmark
-
-DiabeticRetinopathyDiagnosisBecnhmark.download_and_prepare()

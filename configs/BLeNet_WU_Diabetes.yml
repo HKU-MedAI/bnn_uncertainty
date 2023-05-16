@@ -36,7 +36,7 @@ train:
   prior_mu: 0
   prior_sigma: 0.01
   posterior_mu_initial: [ 0, 0.05 ]
-  posterior_rho_initial: [ -3.5, 0.01 ]
+  posterior_rho_initial: [ -5, 0.01 ]
 
 
   in_channels: 1

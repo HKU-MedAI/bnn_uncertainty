@@ -26,7 +26,7 @@ parser.add_argument('-seed', type=int, help='random seed of the run', default=61
 args = parser.parse_args()
 
 opt_path = args.config
-default_config_path = "BLeNet_WU_Diabetes.yml"
+default_config_path = "ResNet_MCD_CIFAR.yml"
 
 if opt_path == "":
     opt_path = CONFIG_DIR / default_config_path
