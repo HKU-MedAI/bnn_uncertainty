@@ -3,6 +3,7 @@ import random
 
 import torch
 import yaml
+import wandb
 
 from globals import *
 from trainer import (
@@ -60,6 +61,7 @@ def parse_trainer(config):
     else:
         raise NotImplementedError("This mode is not implemented")
 
+
 def benchmark_lambda(config):
 
     for lamb in [0.0001, 0.001, 0.01, 0.1, 1]:
@@ -69,6 +71,20 @@ def benchmark_lambda(config):
         trainer = parse_trainer(config)
 
         trainer.train()
+        wandb.finish()
+
+
+def benchmark_n1(config):
+
+    for n_1 in [1, 2, 3, 4, 5]:
+        config["train"]["n_normal_samples"] = n_1
+        config["checkpoints"]["path"] = f"./checkpoints/BLeNet_ARHT_n1_{n_1}"
+        config["logging"]["tags"] += ["abl_n1"]
+
+        trainer = parse_trainer(config)
+        trainer.train()
+        wandb.finish()
+
 
 def benchmark_sample_size(config):
 
@@ -152,7 +168,8 @@ def main():
 
     # benchmark_lambda(config)
     # benchmark_sample_size(config)
-    benchmark_datasets(config)
+    benchmark_n1(config)
+    # benchmark_datasets(config)
     # benchmark_dimensions(config)
     # benchmark_architectures(config)
 

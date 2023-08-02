@@ -22,14 +22,14 @@ from data import load_data
 
 import torch
 
-from sklearn.metrics import roc_auc_score, roc_curve
-from sklearn.metrics import precision_recall_curve, auc
+import wandb
 
 
 class BNNARHTTrainer(Trainer):
     def __init__(self, config):
         super().__init__(config)
 
+        self.initialize_logger()
         self.compare_metrics = True
 
         in_data_name = self.config_data["in"]
@@ -67,11 +67,6 @@ class BNNARHTTrainer(Trainer):
         self.beta = self.config_train["beta"]
 
         self.task = self.config_train["task"]
-
-    def get_ood_label_score(self, test_in_score, test_out_score):
-        score = np.concatenate([test_in_score, test_out_score])
-        label = np.concatenate((np.zeros(len(test_in_score)), np.ones(len(test_out_score))))
-        return label, score
 
     def train_one_step(self, data, label):
         self.optimzer.zero_grad()
@@ -159,18 +154,6 @@ class BNNARHTTrainer(Trainer):
 
         return t_stat
         # return t_stat, rht
-
-    def compute_entropy(self, alphas, alpha0):
-        probs = alphas / alpha0
-        entropy = -torch.sum(probs*torch.log(probs), dim=1)
-        conf = torch.max(probs, dim=1).values
-
-        return entropy, conf
-
-    def compute_diff_entropy(self, alphas, alpha0):
-        return torch.sum(
-            torch.lgamma(alphas) - (alphas - 1) * (torch.digamma(alphas) - torch.digamma(alpha0)),
-            dim=1) - torch.lgamma(alpha0)
 
     def validate(self, epoch):
 
@@ -297,6 +280,7 @@ class BNNARHTTrainer(Trainer):
                     "Validation AUPR": valid_aupr,
                     "Validation AUC": valid_auc,
                 })
+
                 training_range.set_description(
                     'Epoch: {} \tTraining Loss: {:.4f} \tTraining Accuracy: {:.4f} \tValidation AUC: {:.4f} \tValidation AUPR: {:.4f} \tTrain_kl_div: {:.4f} \tTrain_nll: {:.4f}'.format(
                         epoch, train_loss, train_acc, valid_auc, valid_aupr, train_kl, train_nll))
@@ -321,3 +305,26 @@ class BNNARHTTrainer(Trainer):
 
                 # Remove previous checkpoints
                 self.checkpoint_manager.remove_old_version()
+
+            self.logging(epoch_stats)
+
+    def get_ood_label_score(self, test_in_score, test_out_score):
+        score = np.concatenate([test_in_score, test_out_score])
+        label = np.concatenate((np.zeros(len(test_in_score)), np.ones(len(test_out_score))))
+        return label, score
+
+    def compute_entropy(self, alphas, alpha0):
+        probs = alphas / alpha0
+        entropy = -torch.sum(probs*torch.log(probs), dim=1)
+        conf = torch.max(probs, dim=1).values
+
+        return entropy, conf
+
+    def compute_diff_entropy(self, alphas, alpha0):
+        return torch.sum(
+            torch.lgamma(alphas) - (alphas - 1) * (torch.digamma(alphas) - torch.digamma(alpha0)),
+            dim=1) - torch.lgamma(alpha0)
+
+    def logging(self, epoch_stats):
+        wandb.log(epoch_stats)
+

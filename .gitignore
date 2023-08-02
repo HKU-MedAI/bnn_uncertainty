@@ -6,3 +6,5 @@
 ./test_image/
 ./trainer/postnet
 /checkpoints/alexnet-owt-7be5be79.pth
+
+./manuscript

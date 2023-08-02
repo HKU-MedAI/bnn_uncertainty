@@ -94,6 +94,10 @@ def load_data(name, train, image_size=32, in_channel=1, transform="pos"):
         d = torchvision.datasets.CIFAR10
     elif name == "CIFAR100":
         d = torchvision.datasets.CIFAR100
+    elif name == "ImageNet":
+        train = "train" if train else "test"
+        d = torchvision.datasets.ImageNet
+        return d(root='./data', split=train, transform=transform)
     elif name == "Omniglot":
         d = torchvision.datasets.Omniglot
         return d(root='./data', background=train, download=True, transform=transform)

@@ -3,6 +3,7 @@ from collections import OrderedDict
 
 import numpy as np
 import torch
+import wandb
 
 from checkpoint import CheckpointManager
 from matplotlib import pyplot as plt
@@ -19,6 +20,7 @@ class Trainer(ABC):
         self.config_train = config['train']
         self.config_optim = config['optimizer']
         self.config_checkpoint = config['checkpoints']
+        self.config_logging = config["logging"]
 
         # Define checkpoints manager
         self.checkpoint_manager = CheckpointManager(self.config_checkpoint['path'])
@@ -39,6 +41,28 @@ class Trainer(ABC):
     def train(self) -> None:
         raise NotImplementedError
 
+    def initialize_logger(self, notes=""):
+        name = "_".join(
+            [
+                self.config_train["model_name"],
+                self.config["name"],
+                self.config_data["in"],
+                self.config_data["ood"],
+            ]
+        )
+        tags = self.config["logging"]["tags"]
+        tags += [
+            self.config_data["in"],
+            self.config_data["ood"]
+        ]
+        wandb.init(name=name,
+                   project='BNN_Uncertainty',
+                   notes=notes,
+                   config=self.config,
+                   tags=tags,
+                   mode=self.config_logging["mode"]
+                   )
+
     def visualize_scores(self, in_scores, out_scores, epoch):
         pth = self.checkpoint_manager.path / "visualizations"
         if not pth.exists():
@@ -50,7 +74,7 @@ class Trainer(ABC):
         ax.legend()
 
         plt.savefig(pth / f"scors_ep{epoch}.png")
-
+        wandb.log(fig)
         plt.close()
 
     @staticmethod

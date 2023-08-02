@@ -13,7 +13,7 @@ dataset:
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/LeNet_ARHT_Metrics_CIFAR10_SVHN/"
+  path: "./checkpoints/LeNet_ARHT_Metrics_CIFAR10_ImageNet/"
   save_checkpoint_freq: 2
 
 
@@ -38,3 +38,13 @@ train:
   emb_dim: 128
 
   loss: "ELBO"
+
+
+#### Logging
+logging:
+  mode: online # disabled
+  tags: [
+      "LeNet",
+      "ARHT",
+      "OOD"
+    ]
