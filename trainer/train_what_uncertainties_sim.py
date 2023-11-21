@@ -1,5 +1,5 @@
 """
-Trainer of DPN
+Trainer of What uncertainties
 """
 from tqdm import tqdm
 
@@ -13,7 +13,7 @@ import utils
 from parse import (
     parse_loss,
     parse_optimizer,
-    parse_frequentist_model
+    parse_bayesian_model
 )
 from losses import EdlLoss
 
@@ -30,7 +30,7 @@ import torch.distributions as dist
 from torch.distributions.dirichlet import Dirichlet
 
 
-class DPNTrainer(Trainer):
+class WhatUncertaintiesSimulationTrainer(Trainer):
     def __init__(self, config):
         super().__init__(config)
 
@@ -56,24 +56,22 @@ class DPNTrainer(Trainer):
         self.test_out_loader = DataLoader(test_out, batch_size=self.batch_size, shuffle=True)
 
         self.n_classes = self.config_train["out_channels"]
-        self.model = parse_frequentist_model(self.config_train, image_size=image_size).to(self.device)
+        self.model = parse_bayesian_model(self.config_train, image_size=image_size).to(self.device)
         self.optimzer = parse_optimizer(self.config_optim, self.model.parameters())
-
-        self.edl_loss = EdlLoss(self.device)
 
     @staticmethod
     def target_alpha(targets):
         target = targets.numpy()
 
-        def gen_onehot(category, total_cat=200):
+        def gen_onehot(category, total_cat=10):
             label = np.ones(total_cat)
-            label[category] = 10
+            label[category] = 20
             return label
 
         target_alphas = []
         for i in target:
-            if i == 200:
-                target_alphas.append(np.ones(200))
+            if i == 10:
+                target_alphas.append(np.ones(10))
             else:
                 target_alphas.append(gen_onehot(i))
         return torch.Tensor(target_alphas)
@@ -83,20 +81,24 @@ class DPNTrainer(Trainer):
         label = np.concatenate((np.zeros(len(test_in_score)), np.ones(len(test_out_score))))
         return label, score
 
-    def train_one_step(self, data, label):
+    def train_one_step(self, data, label, epoch):
         self.optimzer.zero_grad()
 
-        # predict alpha
-        target_a = self.target_alpha(label)
-        target_a = target_a.to(self.device)
-        output_alpha = torch.exp(self.model(data).softmax(-1))
-        dirichlet1 = Dirichlet(output_alpha)
-        dirichlet2 = Dirichlet(target_a)
+        label = label.to(self.device)
 
-        loss = torch.sum(dist.kl.kl_divergence(dirichlet1, dirichlet2))
+        # Training
+        mu_train, sig_train = self.model(data)
+        sig_train = F.normalize(sig_train, dim=1)
+        sig_train_pos = torch.log(1 + torch.exp(sig_train)) + 1e-4
+        sig_train_pos = sig_train_pos.mean(1)
 
+        loss = F.mse_loss(mu_train, label, reduce=False)
+        loss = loss / sig_train_pos ** 2 / 2
+        loss += 0.5 * torch.log(sig_train_pos ** 2)
+        loss = loss.mean()
+
+        self.optimzer.zero_grad()
         loss.backward()
-
         self.optimzer.step()
 
         return loss.item()
@@ -107,85 +109,52 @@ class DPNTrainer(Trainer):
 
         data = data.to(self.device)
 
-        # s = [torch.exp(a) for a in scores]
-        # s0 = [torch.sum(a, dim=0, keepdim=True) for a in s]
-        # probs = [a / a0 for (a, a0) in zip(s, s0)]
-        # ret = [-torch.sum(v * torch.log(v), dim=0) for v in probs]
-        # entropy = torch.stack(ret).mean(0)
-        # conf = torch.max(torch.stack(probs), dim=1).values
         with torch.no_grad():
-            alphas = torch.exp(self.model(data))
-        alpha0 = torch.sum(alphas, dim=1, keepdim=True)
-        probs = alphas / alpha0
-        entropy = -torch.sum(probs*torch.log(probs), dim=1)
-        conf = torch.max(probs, dim=1).values
+            preds = [self.model(data) for _ in range(20)]
+            preds_mu = torch.stack([p[0] for p in preds])
+            preds_sig = torch.stack([p[1] for p in preds])
+            preds_sig = torch.log(1 + torch.exp(preds_sig)) + 1e-6
 
-        return entropy, conf
+        mu_final = preds_mu.mean(0)
+
+        scores = torch.sqrt(preds_sig.mean(0) + (preds_mu.square().mean(0) - mu_final.square())).sum(1)
+
+        return scores.detach().cpu().numpy()
 
     def validate(self, epoch):
 
         valid_loss_list = []
-        in_score_list_ent = []
-        out_score_list_ent = []
-        in_score_list_conf = []
-        out_score_list_conf = []
+        in_score_list = []
+        out_score_list = []
 
         for i, (data, label) in enumerate(self.test_in_loader):
-            in_scores_ent, in_scores_conf = self.valid_one_step(data, label)
-            in_score_list_ent.append(in_scores_ent)
-            in_score_list_conf.append(in_scores_conf)
+            scores = self.valid_one_step(data, label)
+            in_score_list.append(scores)
 
         for i, (data, label) in enumerate(self.test_out_loader):
-            out_scores_ent,  out_scores_conf = self.valid_one_step(data, label)
-            out_score_list_ent.append(out_scores_ent)
-            out_score_list_conf.append(out_scores_conf)
+            scores = self.valid_one_step(data, label)
+            out_score_list.append(scores)
 
-        in_scores_ent = torch.cat(in_score_list_ent)
-        out_scores_ent = torch.cat(out_score_list_ent)
-        in_scores_conf = torch.cat(in_score_list_conf)
-        out_scores_conf = torch.cat(out_score_list_conf)
+        in_scores = np.concatenate(in_score_list)
+        out_scores = np.concatenate(out_score_list)
 
         labels_1 = torch.cat(
-            [torch.ones(in_scores_ent.shape),
-             torch.zeros(out_scores_ent.shape)]
+            [torch.zeros(in_scores.shape),
+             torch.ones(out_scores.shape)]
         ).detach().cpu().numpy()
+
         labels_2 = torch.cat(
-            [torch.zeros(in_scores_ent.shape),
-             torch.ones(out_scores_ent.shape)]
+            [torch.ones(in_scores.shape),
+             torch.zeros(out_scores.shape)]
         ).detach().cpu().numpy()
 
-        ent_scores = torch.cat([in_scores_ent, out_scores_ent]).detach().cpu().numpy()
-        conf_scores = torch.cat([in_scores_conf, out_scores_conf]).detach().cpu().numpy()
+        scores = np.concatenate([in_scores, out_scores])
 
-        ent_scores = self.format_scores(ent_scores)
-        conf_scores = self.format_scores(conf_scores)
+        scores = self.format_scores(scores)
 
-        ent_auroc, ent_aupr, _, _  = self.comp_aucs_ood(ent_scores, labels_1, labels_2)
-        conf_auroc, conf_aupr, _, _  = self.comp_aucs_ood(conf_scores, labels_1, labels_2)
+        auroc, aupr, precision, recall = self.comp_aucs_ood(scores, labels_1, labels_2)
 
-        return ent_auroc, ent_aupr, conf_auroc, conf_aupr
-
-    def test_classification(self):
-        labels_list = []
-        scores_list = []
-        for i, (data, label) in enumerate(self.test_in_loader):
-            data = data.to(self.device)
-            with torch.no_grad():
-                scores = self.model(data)
-            labels_list.append(label)
-            scores_list.append(scores)
-
-        labels = torch.cat(labels_list).detach().cpu()
-        scores = torch.cat(scores_list).detach().cpu().softmax(1)
-
-        precision, recall, f1, classf_auroc = utils.metrics(scores, labels, self.average)
-        clasff_accuracy = utils.acc(scores, labels)
-
-        return {
-            "classf_auroc": classf_auroc,
-            "classf_acc": clasff_accuracy,
-            "classf_f1": f1
-        }
+        return auroc, aupr, precision, recall
 
     def train(self) -> None:
         print(f"Start training Uncertainty BNN...")
@@ -199,7 +168,7 @@ class DPNTrainer(Trainer):
             for i, (data, label) in enumerate(self.train_in_loader):
                 data = data.to(self.device)
 
-                res = self.train_one_step(data, label)
+                res = self.train_one_step(data, label, epoch)
 
                 training_loss_list.append(res)
 
@@ -214,20 +183,14 @@ class DPNTrainer(Trainer):
                 "Validation AUPR": valid_aupr,
                 "Validation AUC": valid_auc,
             })
+            self.logging(epoch_stats)
 
             training_range.set_description(
                 'Epoch: {} \tTraining Loss: {:.4f} \tValidation AUC: {:.4f} \tValidation AUPR: {:.4f}'.format(
-                    epoch, train_loss, valid_auc, valid_aupr))
-
-            self.logging(epoch_stats)
-
-            # # Classification
-            # classf_metrics = self.test_classification()
-            # epoch_stats.update(classf_metrics)
+                    epoch, train_loss, valid_auc, valid_aupr, ))
 
             # Update new checkpoints and remove old ones
             if self.save_steps and (epoch + 1) % self.save_steps == 0:
-
                 # State dict of the model including embeddings
                 self.checkpoint_manager.write_new_version(
                     self.config,

@@ -13,7 +13,7 @@ import argparse
 import time
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--run_name', default="cifar_svhn_resnet", type=str, help='Name of the run, data will be stored in results/args.run_name')
+parser.add_argument('--run_name', default="cifar_svhn_resnet50", type=str, help='Name of the run, data will be stored in results/args.run_name')
 parser.add_argument('--seeds', type=int, default=50, help='Number of seeds to run')
 parser.add_argument('--samples', default=[10, 20, 50], nargs='+', help='Number of samples to use for each dataset')
 parser.add_argument('--splits', default=['p', 'q'], nargs='+',

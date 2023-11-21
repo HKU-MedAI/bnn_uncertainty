@@ -7,7 +7,6 @@ import wandb
 
 from globals import *
 from trainer import (
-    BNNUncertaintyTrainer,
     BNNARHTTrainer,
     EDLTrainer,
     DPNTrainer,
@@ -85,6 +84,17 @@ def benchmark_n1(config):
         trainer.train()
         wandb.finish()
 
+def benchmark_r(config):
+
+    for r in [0.3, 0.5, 0.7, 0.9]:
+        config["dataset"]["subset_ratio"] = r
+        config["checkpoints"]["path"] = f"./checkpoints/BLeNet_ARHT_r_{r}"
+        config["logging"]["tags"] += ["abl_r"]
+
+        trainer = parse_trainer(config)
+        trainer.train()
+        wandb.finish()
+
 
 def benchmark_sample_size(config):
 
@@ -95,6 +105,7 @@ def benchmark_sample_size(config):
         trainer = parse_trainer(config)
 
         trainer.train()
+        wandb.finish()
 
 
 def benchmark_datasets(config):
@@ -168,7 +179,8 @@ def main():
 
     # benchmark_lambda(config)
     # benchmark_sample_size(config)
-    benchmark_n1(config)
+    benchmark_r(config)
+    # benchmark_n1(config)
     # benchmark_datasets(config)
     # benchmark_dimensions(config)
     # benchmark_architectures(config)

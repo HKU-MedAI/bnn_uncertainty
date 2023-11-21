@@ -1,6 +1,6 @@
 #### general settings
-name: DPN
-train_type: dpn
+name: EDL
+train_type: edl
 eval_type: bnn
 gpu_ids: [2]
 
@@ -8,12 +8,12 @@ gpu_ids: [2]
 #### datasets
 dataset:
   image_size: 32
-  in: "CIFAR10"
-  ood: "ImageNet"
+  in: "ImageNet"
+  ood: "CIFAR10"
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/LeNet_DPN_CIFAR10_ImageNet/"
+  path: "./checkpoints/LeNet_EDL_CIFAR10_ImageNet/"
   save_checkpoint_freq: 2
 
 
@@ -32,7 +32,7 @@ train:
   train_size: 1
 
   in_channels: 3
-  out_channels: 10
+  out_channels: 200
 
   loss: "ELBO"
 
@@ -41,6 +41,6 @@ logging:
   mode: online # disabled
   tags: [
       "LeNet",
-      "DPN",
+      "EDL",
       "OOD"
     ]

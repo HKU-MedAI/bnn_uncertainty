@@ -34,6 +34,8 @@ class MCDTrainer(Trainer):
     def __init__(self, config):
         super().__init__(config)
 
+        self.initialize_logger()
+
         image_size = self.config_data["image_size"]
         in_data_name = self.config_data["in"]
         ood_data_name = self.config_data["ood"]
@@ -82,7 +84,7 @@ class MCDTrainer(Trainer):
         label = np.concatenate((np.zeros(len(test_in_score)), np.ones(len(test_out_score))))
         return label, score
 
-    def train_one_step(self, data, label, epoch):
+    def train_one_step(self, data, label):
         self.optimzer.zero_grad()
 
         outputs = torch.zeros(data.shape[0], self.config_train["out_channels"], 1).to(self.device)
@@ -178,7 +180,6 @@ class MCDTrainer(Trainer):
             "classf_f1": f1
         }
 
-
     def train(self) -> None:
         print(f"Start training Uncertainty BNN...")
 
@@ -192,7 +193,7 @@ class MCDTrainer(Trainer):
                 data = data.to(self.device)
                 label = label.to(self.device)
 
-                res = self.train_one_step(data, label, epoch)
+                res = self.train_one_step(data, label)
 
                 training_loss_list.append(res)
 
@@ -209,9 +210,10 @@ class MCDTrainer(Trainer):
             })
 
             # Classification
-            classf_metrics = self.test_classification()
-            epoch_stats.update(classf_metrics)
+            # classf_metrics = self.test_classification()
+            # epoch_stats.update(classf_metrics)
 
+            self.logging(epoch_stats)
             training_range.set_description(
                 'Epoch: {} \tTraining Loss: {:.4f} \tValidation AUC: {:.4f} \tValidation AUPR: {:.4f}'.format(
                     epoch, train_loss, valid_auc, valid_aupr))

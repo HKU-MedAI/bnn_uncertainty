@@ -9,7 +9,7 @@ gpu_ids: [2]
 dataset:
   image_size: 32
   in: "CIFAR10"
-  ood: "SVHN"
+  ood: "ImageNet"
 
 #### Checkpoint settings
 checkpoints:
@@ -20,7 +20,7 @@ checkpoints:
 #### Optimizer settings
 optimizer:
   opt_method: "ADAM"
-  lr: 0.0001  # Learning rate
+  lr: 0.0005  # Learning rate
   weight_decay: 0.001
 
 #### training settings: learning rate scheme, loss, optimizer
@@ -38,8 +38,15 @@ train:
   posterior_mu_initial: [ 0, 0.05 ]
   posterior_rho_initial: [ -2.5, 0.01 ]
 
-
   in_channels: 3
   out_channels: 10
 
   loss: "ELBO"
+
+logging:
+  mode: online # disabled
+  tags: [
+      "BResNet50",
+      "WU",
+      "OOD"
+    ]

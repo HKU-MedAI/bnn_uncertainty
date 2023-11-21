@@ -1,6 +1,6 @@
 #### general settings
-name: DPN
-train_type: dpn
+name: Ensembles
+train_type: ensembles-sim
 eval_type: bnn
 gpu_ids: [2]
 
@@ -8,39 +8,45 @@ gpu_ids: [2]
 #### datasets
 dataset:
   image_size: 32
-  in: "CIFAR10"
-  ood: "ImageNet"
+  in: "Gaussian_train"
+  test_in: "Gaussian_test_in"
+  ood: "Gaussian_test_ood"
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/LeNet_DPN_CIFAR10_ImageNet/"
+  path: "./checkpoints/LeNet_Ensembles_CIFAR10_ImageNet/"
   save_checkpoint_freq: 2
 
 
 #### Optimizer settings
 optimizer:
   opt_method: "ADAM"
-  lr: 0.0005  # Learning rate
+  lr: 0.0001  # Learning rate
   weight_decay: 0.001
 
 #### training settings: learning rate scheme, loss, optimizer
 train:
-  model_name: "LeNet"
+  model_name: "MLP"
+
+  is_de: True  # Whether or not apply deep ensembles
+  n_models: 5
 
   num_epochs: 100
   batch_size: 128
   train_size: 1
 
-  in_channels: 3
-  out_channels: 10
+  n_blocks: 2
+
+  in_channels: 128
+  out_channels: 1
 
   loss: "ELBO"
 
 #### Logging
 logging:
-  mode: online # disabled
+  mode: disabled # disabled
   tags: [
-      "LeNet",
-      "DPN",
+      "MLP",
+      "Ensembles",
       "OOD"
     ]

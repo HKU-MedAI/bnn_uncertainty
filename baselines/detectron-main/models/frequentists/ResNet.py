@@ -1,5 +1,5 @@
 import math
-from torchvision.models import resnet18
+from torchvision.models import resnet50
 
 import torch
 import torch.nn as nn
@@ -20,7 +20,7 @@ class ResNet(nn.Module):
         else:
             raise ValueError("Only softplus or relu supported")
 
-        self.model = resnet18(pretrained=True)
+        self.model = resnet50(pretrained=True)
 
         self.out = nn.Linear(1000, outputs)
 

@@ -97,28 +97,6 @@ def parse_bayesian_model(config_train, image_size=32):
             'posterior_mu_initial': config_train["posterior_mu_initial"],
             'posterior_rho_initial': config_train["posterior_rho_initial"],
         }
-    elif model_name in ["HorseshoeLeNet", "BHorseshoeAlexNet", "HorseshoeCNN", "HorseshoeMLP"]:
-        priors = {
-            "horseshoe_scale": config_train["horseshoe_scale"],
-            "global_cauchy_scale": config_train["global_cauchy_scale"],
-            "weight_cauchy_scale": config_train["weight_cauchy_scale"],
-            "beta_rho_scale": config_train["beta_rho_scale"],
-            "log_tau_mean": config_train["log_tau_mean"],
-            "log_tau_rho_scale": config_train["log_tau_rho_scale"],
-            "bias_rho_scale": config_train["bias_rho_scale"],
-            "log_v_mean": config_train["log_v_mean"],
-            "log_v_rho_scale": config_train["log_v_rho_scale"]
-        }
-    elif model_name in ["R2D2AlexNet", "R2D2LeNet", "R2D2CNN", "R2D2MLP"]:
-        priors = {
-            "r2d2_scale": config_train["r2d2_scale"],
-            "prior_phi_prob": config_train["prior_phi_prob"],
-            "prior_psi_shape": config_train["prior_psi_shape"],
-            "beta_rho_scale": config_train["beta_rho_scale"],
-            "bias_rho_scale": config_train["bias_rho_scale"],
-            "weight_xi_shape": config_train["weight_xi_shape"],
-            "weight_omega_shape": config_train["weight_omega_shape"],
-        }
     else:
         priors = None
 
@@ -135,7 +113,8 @@ def parse_bayesian_model(config_train, image_size=32):
             outputs=out_dim,
             inputs=in_dim,
             priors=priors,
-            n_blocks=n_blocks
+            n_blocks=n_blocks,
+            get_sig=is_de
         )
     elif model_name == "BLeNet":
         return BBBLeNet(
@@ -213,7 +192,8 @@ def parse_frequentist_model(config_freq, image_size=32):
         return MultipleLinear(
             outputs=out_dim,
             inputs=in_dim,
-            n_blocks=n_blocks
+            n_blocks=n_blocks,
+            get_sig=is_de
         )
     else:
         raise NotImplementedError("This Loss is not implemented")

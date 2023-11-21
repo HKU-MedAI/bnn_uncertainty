@@ -7,10 +7,10 @@ gpu_ids: [2]
 
 #### datasets
 dataset:
-  image_size: 32
-  in: "CIFAR10"
-  ood: "SVHN"
-  subset_ratio: 0.5
+  image_size: 64
+  in: "ImageNet"
+  ood: "CIFAR10"
+  subset_ratio: 0.2
 
 #### Checkpoint settings
 checkpoints:
@@ -45,7 +45,7 @@ train:
   init_lambda: 0.001
 
   in_channels: 3
-  out_channels: 10
+  out_channels: 200
 
   loss: "ELBO"
 

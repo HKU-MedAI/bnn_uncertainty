@@ -1,19 +1,20 @@
 #### general settings
-name: DPN
-train_type: dpn
+name: BPN
+train_type: mcd-sim
 eval_type: bnn
 gpu_ids: [2]
 
 
 #### datasets
 dataset:
-  image_size: 32
-  in: "CIFAR10"
-  ood: "ImageNet"
+  image_size: 64
+  in: "Gaussian_train"
+  test_in: "Gaussian_test_in"
+  ood: "Gaussian_test_ood"
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/LeNet_DPN_CIFAR10_ImageNet/"
+  path: "./checkpoints/LeNet_MCD_Simulation/"
   save_checkpoint_freq: 2
 
 
@@ -25,22 +26,25 @@ optimizer:
 
 #### training settings: learning rate scheme, loss, optimizer
 train:
-  model_name: "LeNet"
+  model_name: "MLP"
 
   num_epochs: 100
   batch_size: 128
   train_size: 1
 
-  in_channels: 3
-  out_channels: 10
+  n_blocks: 2
+  in_channels: 128
+  out_channels: 1
+
+  n_testing_samples: 200
 
   loss: "ELBO"
 
 #### Logging
 logging:
-  mode: online # disabled
+  mode: disabled # disabled, online
   tags: [
-      "LeNet",
-      "DPN",
+      "MLP",
+      "ARHT",
       "OOD"
     ]

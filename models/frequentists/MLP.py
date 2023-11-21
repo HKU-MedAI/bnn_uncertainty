@@ -9,7 +9,7 @@ class MultipleLinear(nn.Module):
     and 3 FC layers with Bayesian layers.
     """
 
-    def __init__(self, outputs, inputs, n_blocks=3, layer_type="r2d2", activation_type='softplus'):
+    def __init__(self, outputs, inputs, n_blocks=3, get_sig=False, activation_type='softplus'):
         super(MultipleLinear, self).__init__()
 
         self.num_classes = outputs
@@ -25,8 +25,8 @@ class MultipleLinear(nn.Module):
 
         linears = [
                 nn.Linear(inputs, 32),
-                nn.Linear(32, 64),
-                nn.Linear(64, 128),
+                nn.Linear(32, 32),
+                nn.Linear(32, 128),
                 nn.Linear(128, 128)
         ]
 
@@ -39,17 +39,26 @@ class MultipleLinear(nn.Module):
             self.dense_block.add_module(f"act{l}", self.act())
             out_channel = linears[l].out_features
 
-        fc_out = nn.Linear(out_channel, outputs, bias=True)
-        self.dense_block.add_module(f"fc_out", fc_out)
+        self.fc_out = nn.Linear(out_channel, outputs, bias=True)
+
+        self.get_sig = get_sig
+        if get_sig:
+            self.out_sig = nn.Linear(out_channel, outputs, bias=True)
 
     def forward(self, x):
-        x = self.dense_block(x)
-        return x
+        emb = self.dense_block(x)
+
+        out = self.fc_out(emb)
+        if self.get_sig:
+            out_sig = self.out_sig(emb)
+            return out, out_sig
+
+        return out
 
     def mc_dropout(self, x, p=0.2):
         for l in range(self.n_blocks):
             x = self.dense_block[2 * l](x)
             x = self.dense_block[2 * l + 1](x)
             x = F.dropout(x, p)
-        x = self.dense_block[-1](x)
+        x = self.fc_out(x)
         return x

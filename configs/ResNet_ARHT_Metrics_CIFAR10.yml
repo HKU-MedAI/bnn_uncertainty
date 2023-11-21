@@ -1,6 +1,6 @@
 #### general settings
 name: ARHT
-train_type: arht-uncertainty
+train_type: arht-metrics-freq
 eval_type: bnn
 gpu_ids: [2]
 
@@ -10,11 +10,10 @@ dataset:
   image_size: 32
   in: "CIFAR10"
   ood: "SVHN"
-  subset_ratio: 0.5
 
 #### Checkpoint settings
 checkpoints:
-  path: "./checkpoints/BResNet_ARHT_CIFAR10_SVHN/"
+  path: "./checkpoints/ResNet_ARHT_Metrics_CIFAR10_SVHN/"
   save_checkpoint_freq: 2
 
 
@@ -26,33 +25,26 @@ optimizer:
 
 #### training settings: learning rate scheme, loss, optimizer
 train:
-  model_name: "BResNet"
+  model_name: "ResNet"
 
   num_epochs: 100
   batch_size: 128
   train_size: 1
-  task: "ood"
 
-  n_normal_samples: 1
-  n_testing_samples: 100
-
-  beta: 0.0001
-  prior_mu: 0
-  prior_sigma: 0.01
-  posterior_mu_initial: [0, 0.05]
-  posterior_rho_initial: [-3, 0.01]
-
-  init_lambda: 0.001
+  init_lambda: 0.01
 
   in_channels: 3
   out_channels: 10
+  emb_dim: 16
 
   loss: "ELBO"
 
+
+#### Logging
 logging:
   mode: online # disabled
   tags: [
-      "BResNet50",
+      "ResNet",
       "ARHT",
       "OOD"
     ]

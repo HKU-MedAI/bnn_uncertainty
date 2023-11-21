@@ -8,8 +8,9 @@ gpu_ids: [2]
 #### datasets
 dataset:
   image_size: 32
-  in: "CIFAR10"
-  ood: "SVHN"
+  in: "ImageNet"
+  ood: "CIFAR10"
+  subset_ratio: 0.5
 
 #### Checkpoint settings
 checkpoints:
@@ -20,7 +21,7 @@ checkpoints:
 #### Optimizer settings
 optimizer:
   opt_method: "ADAM"
-  lr: 0.0001  # Learning rate
+  lr: 0.0005  # Learning rate
   weight_decay: 0.001
 
 #### training settings: learning rate scheme, loss, optimizer
@@ -28,11 +29,11 @@ train:
   model_name: "BLeNet"
   task: "ood"
 
-  num_epochs: 100
+  num_epochs: 50
   batch_size: 128
   train_size: 1
 
-  n_normal_samples: 5
+  n_normal_samples: 1
   n_testing_samples: 200
 
   beta: 0.0001
@@ -44,8 +45,8 @@ train:
   init_lambda: 0.01
 
   in_channels: 3
-  out_channels: 10
-  emb_dim: 64
+  out_channels: 200
+  emb_dim: 16
 
   loss: "ELBO"
 

@@ -34,6 +34,8 @@ class WhatUncertaintiesTrainer(Trainer):
     def __init__(self, config):
         super().__init__(config)
 
+        self.initialize_logger()
+
         image_size = self.config_data["image_size"]
         in_data_name = self.config_data["in"]
         ood_data_name = self.config_data["ood"]
@@ -102,9 +104,6 @@ class WhatUncertaintiesTrainer(Trainer):
         return loss.item()
 
     def valid_one_step(self, data, label):
-
-        # Develop
-
         data = data.to(self.device)
 
         with torch.no_grad():
@@ -204,14 +203,15 @@ class WhatUncertaintiesTrainer(Trainer):
                 "Validation AUPR": valid_aupr,
                 "Validation AUC": valid_auc,
             })
+            self.logging(epoch_stats)
 
             # Classification
-            classf_metrics = self.test_classification()
-            epoch_stats.update(classf_metrics)
+            # classf_metrics = self.test_classification()
+            # epoch_stats.update(classf_metrics)
 
             training_range.set_description(
-                'Epoch: {} \tTraining Loss: {:.4f} \tValidation AUC: {:.4f} \tValidation AUPR: {:.4f} \tClassf AUROC: {:.4f}'.format(
-                    epoch, train_loss, valid_auc, valid_aupr, classf_metrics["classf_auroc"]))
+                'Epoch: {} \tTraining Loss: {:.4f} \tValidation AUC: {:.4f} \tValidation AUPR: {:.4f}'.format(
+                    epoch, train_loss, valid_auc, valid_aupr))
 
             # Update new checkpoints and remove old ones
             if self.save_steps and (epoch + 1) % self.save_steps == 0:

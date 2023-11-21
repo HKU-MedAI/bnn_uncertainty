@@ -74,7 +74,7 @@ class Trainer(ABC):
         ax.legend()
 
         plt.savefig(pth / f"scors_ep{epoch}.png")
-        wandb.log(fig)
+        wandb.log({"chart": fig})
         plt.close()
 
     @staticmethod
@@ -121,3 +121,6 @@ class Trainer(ABC):
             dim=2) - torch.lgamma(alpha0[:, :, 0])
 
         return s.mean(0).numpy()
+
+    def logging(self, epoch_stats):
+        wandb.log(epoch_stats)

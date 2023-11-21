@@ -34,6 +34,8 @@ class DeepEnsemblesTrainer(Trainer):
     def __init__(self, config):
         super().__init__(config)
 
+        self.initialize_logger()
+
         image_size = self.config_data["image_size"]
         in_data_name = self.config_data["in"]
         ood_data_name = self.config_data["ood"]
@@ -86,9 +88,7 @@ class DeepEnsemblesTrainer(Trainer):
         return label, score
 
     def train_one_step(self, data, label):
-
-        label = utils.one_hot_embedding(label, self.n_classes).cuda()
-
+        label = F.one_hot(label, num_classes=self.n_classes).to(self.device)
         for i in range(self.n_models):
             # Training
             mu_train, sig_train = self.models[i](data)
@@ -212,8 +212,10 @@ class DeepEnsemblesTrainer(Trainer):
                 "Validation AUC": valid_auc,
             })
 
-            classf_metrics = self.test_classification()
-            epoch_stats.update(classf_metrics)
+            self.logging(epoch_stats)
+
+            # classf_metrics = self.test_classification()
+            # epoch_stats.update(classf_metrics)
 
             training_range.set_description(
                 'Epoch: {} \tTraining Loss: {:.4f} \tValidation AUC: {:.4f} \tValidation AUPR: {:.4f}'.format(

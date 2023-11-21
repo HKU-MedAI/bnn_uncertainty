@@ -9,6 +9,7 @@ from torchvision import transforms
 
 from PIL import Image
 
+
 class Cutout(object):
     """Randomly mask out one or more patches from an image.
     Args:
@@ -95,9 +96,17 @@ def load_data(name, train, image_size=32, in_channel=1, transform="pos"):
     elif name == "CIFAR100":
         d = torchvision.datasets.CIFAR100
     elif name == "ImageNet":
-        train = "train" if train else "test"
-        d = torchvision.datasets.ImageNet
-        return d(root='./data', split=train, transform=transform)
+        if train:
+            return torchvision.datasets.ImageFolder(root="./data/tiny-imagenet-200/train", transform=transform)
+        else:
+            transform = torchvision.transforms.Compose(
+                [
+                    torchvision.transforms.Grayscale(num_output_channels=in_channel),
+                    torchvision.transforms.ToTensor(),
+                    norm,
+                    torchvision.transforms.Resize((image_size, image_size))
+                ])
+            return torchvision.datasets.ImageFolder(root="./data/tiny-imagenet-200/val", transform=transform)
     elif name == "Omniglot":
         d = torchvision.datasets.Omniglot
         return d(root='./data', background=train, download=True, transform=transform)
@@ -115,10 +124,20 @@ def load_data(name, train, image_size=32, in_channel=1, transform="pos"):
         else:
             raise ValueError
         return DiabetesDataset(img_dir, transform)
+    elif "Gaussian" in name:
+        if "test_in" in name:
+            return SimulatedDataset(1000, 0.1)
+        elif "train" in name:
+            return SimulatedDataset(2000, 0.1)
+        elif "test_ood" in name:
+            return SimulatedDataset(1000, -0.1)
+        else:
+            raise ValueError
     else:
         raise NotImplementedError
 
     return d(root='./data', train=train, download=True, transform=transform)
+
 
 class DiabetesDataset(Dataset):
     def __init__(self, img_dir: str, transform) -> None:
@@ -142,3 +161,28 @@ class DiabetesDataset(Dataset):
 
     def __len__(self) -> int:
         return len(self.data_paths)
+
+
+from torch.distributions import MultivariateNormal
+
+
+class SimulatedDataset(Dataset):
+    def __init__(self, n, mean, sd=1):
+        # Set random seed
+        np.random.seed(30)
+        self.n = n
+        x = MultivariateNormal(mean * torch.ones(128), torch.eye(128)).sample([n])
+        eps = np.random.normal(loc=0, scale=4, size=n)
+
+        self.y = (x.sum(1) + eps).float()
+        self.covariates = x.float()
+
+    def __len__(self):
+        return self.covariates.shape[0]
+
+    def __getitem__(self, idx):
+        # Convert idx from tensor to list due to pandas bug (that arises when using pytorch's random_split)
+        if isinstance(idx, torch.Tensor):
+            idx = idx.tolist()
+
+        return self.covariates[idx], self.y[idx]

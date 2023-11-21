@@ -1,5 +1,5 @@
 import math
-from torchvision.models import resnet18
+from torchvision.models import resnet50
 
 import torch
 import torch.nn as nn
@@ -24,7 +24,7 @@ class BBBResNet(nn.Module):
         else:
             raise ValueError("Only softplus or relu supported")
 
-        model = resnet18(pretrained=True).cuda()
+        model = resnet50(pretrained=True).cuda()
 
         model.conv1 = self.freq_to_bayes(model.conv1, "conv")
         model.layer1[0].conv1 = self.freq_to_bayes(model.layer1[0].conv1, "conv")

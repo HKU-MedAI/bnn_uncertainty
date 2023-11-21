@@ -11,7 +11,7 @@ import sklearn.metrics as skm
 from sklearn.metrics import precision_recall_curve
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--run_name', default="cifar_svhn_resnet", type=str)
+parser.add_argument('--run_name', default="cifar_svhn_resnet50", type=str)
 parser.add_argument('--significance', '--alpha', type=float, default=0.05)
 parser.add_argument('--ensemble_size', '-n', type=int, default=5)
 args = parser.parse_args()

@@ -31,6 +31,8 @@ class ARHTMetricsFreqTrainer(Trainer):
     def __init__(self, config):
         super().__init__(config)
 
+        self.initialize_logger()
+
         self.compare_metrics = True
 
         in_data_name = self.config_data["in"]
@@ -252,6 +254,8 @@ class ARHTMetricsFreqTrainer(Trainer):
             train_precision, train_recall, train_f1, train_aucroc = utils.metrics(probs, labels, average="weighted")
 
             val_metrics = self.validate(epoch)
+
+            self.logging(val_metrics)
 
             training_range.set_description(
                 'Epoch: {} \tTraining Loss: {:.4f} \tTraining Accuracy: {:.4f} \tValidation AUC: {:.4f} \tValidation AUPR: {:.4f} \tTrain_nll: {:.4f}'.format(

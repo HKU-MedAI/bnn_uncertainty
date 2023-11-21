@@ -13,7 +13,7 @@ class BBBMultipleLinear(nn.Module):
     and 3 FC layers with Bayesian layers.
     """
 
-    def __init__(self, outputs, inputs, priors, n_blocks=3, layer_type="r2d2", activation_type='softplus'):
+    def __init__(self, outputs, inputs, priors, n_blocks=3, get_sig=False, activation_type='softplus'):
         super(BBBMultipleLinear, self).__init__()
 
         self.num_classes = outputs
@@ -30,8 +30,8 @@ class BBBMultipleLinear(nn.Module):
 
         linears = [
                 BBBLinear(inputs, 32, priors=self.priors),
-                BBBLinear(32, 64, priors=self.priors),
-                BBBLinear(64, 128, priors=self.priors),
+                BBBLinear(32, 32, priors=self.priors),
+                BBBLinear(32, 128, priors=self.priors),
                 BBBLinear(128, 128, priors=self.priors)
         ]
 
@@ -44,8 +44,10 @@ class BBBMultipleLinear(nn.Module):
             self.dense_block.add_module(f"act{l}", self.act())
             out_channel = linears[l].out_features
 
-        fc_out = BBBLinear(out_channel, outputs, bias=True, priors=self.priors)
-        self.dense_block.add_module(f"fc_out", fc_out)
+        self.fc_out = BBBLinear(out_channel, outputs, bias=True, priors=self.priors)
+        self.get_sig= get_sig
+        if get_sig:
+            self.fc_sig = BBBLinear(out_channel, outputs, bias=True, priors=self.priors)
 
     def kl_loss(self):
         # Compute KL divergences
@@ -57,7 +59,15 @@ class BBBMultipleLinear(nn.Module):
 
         return kl
 
-    def forward(self, x):
-        x = self.dense_block(x)
-        return x
+    def forward(self, x, get_emb=False):
+        emb = self.dense_block(x)
+        if get_emb:
+            return emb
+
+        out = self.fc_out(emb)
+        if self.get_sig:
+            out_sig = self.fc_sig(emb)
+            return out, out_sig
+
+        return out
 

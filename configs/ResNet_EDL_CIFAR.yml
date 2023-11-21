@@ -35,3 +35,11 @@ train:
   out_channels: 10
 
   loss: "ELBO"
+
+logging:
+  mode: online # disabled
+  tags: [
+      "BResNet50",
+      "EDL",
+      "OOD"
+    ]

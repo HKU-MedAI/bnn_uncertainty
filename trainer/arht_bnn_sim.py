@@ -25,7 +25,7 @@ import torch
 import wandb
 
 
-class BNNARHTTrainer(Trainer):
+class BNNARHTSimulationTrainer(Trainer):
     def __init__(self, config):
         super().__init__(config)
 
@@ -45,7 +45,6 @@ class BNNARHTTrainer(Trainer):
         self.average = "binary" if self.config_train["out_channels"] == 2 else "weighted"
 
         train_in = load_data(in_data_name, True, image_size, in_channel)
-        train_in = self.subset_dataset(train_in, self.config_data["subset_ratio"])
         test_in = load_data(test_in_name, False, image_size, in_channel)
         train_out = load_data(ood_data_name, True, image_size, in_channel)
         test_out = load_data(ood_data_name, False, image_size, in_channel)
@@ -78,83 +77,14 @@ class BNNARHTTrainer(Trainer):
             pred = pred.mean(0)
 
         kl_loss = self.model.kl_loss()
-        ce_loss = F.cross_entropy(pred, label, reduction='mean')
+        mse_loss = F.mse_loss(pred, label, reduction='mean')
 
-        loss = ce_loss + kl_loss.item() * self.beta
-        # loss = ce_loss
+        loss = mse_loss + kl_loss.item() * self.beta
         loss.backward()
 
         self.optimzer.step()
 
-        acc = utils.acc(pred.data, label)
-
-        return loss.item(), kl_loss.item(), ce_loss.item(), acc, pred
-
-    def compute_normal_posterior(self, data):
-
-        # Develop
-
-        data = data.to(self.device)
-
-        # Monte Carlo samples from different dropout mask at test time
-        with torch.no_grad():
-            scores = [self.model(data, get_emb=True) for _ in range(self.n_noraml_samples)]
-            scores = torch.cat(scores)
-
-        n_1 = scores.shape[0]
-        s = scores.mean(0)
-        diffs = scores - scores.mean(0)
-        cov = torch.matmul(diffs.T, diffs)
-
-        return s, cov, n_1
-
-    def tune_lambda(self, tester, lambdas, priors):
-        q_values = [tester.Q_function(lamb, priors) for lamb in lambdas]
-        indx = np.argmax(q_values)
-        return lambdas[indx]
-
-    def get_embs(self, data):
-        data = data.to(self.device)
-
-        # Compute embeddings
-        with torch.no_grad():
-            scores = [self.model(data, get_emb=True) for _ in range(self.n_test_samples)]
-            scores = torch.stack(scores)
-
-        return scores
-
-    def compute_p_values(self, mean_normal, cov_normal, n_1, embs):
-        """
-        Compute the ARHT test statistics and p value
-        """
-
-        # Bring data to numpy
-        scores = embs.detach().cpu().numpy()
-        mean_normal = mean_normal.detach().cpu().numpy() / n_1
-        cov_normal = cov_normal.detach().cpu().numpy()
-
-        # Compute mean and variance of testing embeddings
-        test_mu = scores.mean(0)
-        test_cov = np.einsum("ikj, ikl -> kjl", (scores - test_mu), (scores - test_mu))
-
-        lamb = self.config_train["init_lambda"]
-        # lambdas = [lamb, lamb * 5, lamb * 10, lamb * 50]
-        lambdas = [lamb, lamb * 5, lamb * 10]
-        n_2 = scores.shape[0]
-        n = n_1 + n_2
-        p = cov_normal.shape[0]
-
-        cov = (cov_normal + test_cov) / (n_1 + n_2)
-
-        tester = AdaptableRHT(lambdas, cov, n, p)
-        lamb = tester.find_optimal_Q()
-
-        t_stat = tester.adaptive_rht(lamb, mean_normal, test_mu, n_1, n_2, p)
-        rht = tester.rht(lamb, mean_normal, test_mu, n_1, n_2)
-        # pvalues = min(stats.norm.cdf(t_stat), 1 - stats.norm.cdf(t_stat))
-
-        return t_stat
-        # return t_stat, rht
+        return loss.item(), kl_loss.item(), mse_loss.item()
 
     def validate(self, epoch):
 
@@ -246,53 +176,40 @@ class BNNARHTTrainer(Trainer):
             epoch_stats = {"Epoch": epoch + 1}
             training_loss_list = []
             kl_list = []
-            nll_list = []
-            acc_list = []
-            probs = []
-            labels = []
+            mse_list = []
 
             for i, (data, label) in enumerate(self.train_in_loader):
                 data = data.to(self.device)
                 label = label.to(self.device)
 
-                res, kl, nll, acc, log_outputs = self.train_one_step(data, label)
+                res, kl, mse = self.train_one_step(data, label)
 
                 training_loss_list.append(res)
                 kl_list.append(kl)
-                nll_list.append(nll)
-                acc_list.append(acc)
+                mse_list.append(mse)
 
-                probs.append(log_outputs.softmax(1).detach().cpu().numpy())
-                labels.append(label.detach().cpu().numpy())
-
-            train_loss, train_acc, train_kl, train_nll = np.mean(training_loss_list), np.mean(acc_list), np.mean(
-                kl_list), np.mean(nll_list)
-
-            probs = np.concatenate(probs)
-            labels = np.concatenate(labels)
-            train_precision, train_recall, train_f1, train_aucroc = utils.metrics(probs, labels, average=self.average)
+            train_loss, train_kl, train_mse = np.mean(training_loss_list), np.mean(
+                kl_list), np.mean(mse_list)
 
             if self.task == "ood":
                 valid_auc, valid_aupr, precision, recall = self.validate(epoch)
                 epoch_stats.update({
                     "Train Loss": train_loss,
-                    "Train Accuracy": train_acc,
-                    "Train AUC": train_aucroc,
                     "Validation AUPR": valid_aupr,
                     "Validation AUC": valid_auc,
                 })
 
                 training_range.set_description(
-                    'Epoch: {} \tTraining Loss: {:.4f} \tTraining Accuracy: {:.4f} \tValidation AUC: {:.4f} \tValidation AUPR: {:.4f} \tTrain_kl_div: {:.4f} \tTrain_nll: {:.4f}'.format(
-                        epoch, train_loss, train_acc, valid_auc, valid_aupr, train_kl, train_nll))
+                    'Epoch: {} \tTraining Loss: {:.4f}  \tValidation AUC: {:.4f} \tValidation AUPR: {:.4f} \tTrain_kl_div: {:.4f} \tTrain_nll: {:.4f}'.format(
+                        epoch, train_loss, valid_auc, valid_aupr, train_kl, train_mse))
             elif self.task == "classf":
                 # Classification
                 classf_metrics = self.test_classification()
                 epoch_stats.update(classf_metrics)
 
                 training_range.set_description(
-                    'Epoch: {} \tTraining Loss: {:.4f} \tTraining Accuracy: {:.4f} \tValidation ACC: {:.4f} \tValidation AUC: {:.4f}'.format(
-                        epoch, train_loss, train_acc, classf_metrics["classf_acc"], classf_metrics["classf_auroc"]))
+                    'Epoch: {} \tTraining Loss: {:.4f} \tTraining MSE {:.4f} \tValidation ACC: {:.4f} \tValidation AUC: {:.4f}'.format(
+                        epoch, train_loss, train_mse, classf_metrics["classf_acc"], classf_metrics["classf_auroc"]))
             self.logging(epoch_stats)
 
             # Update new checkpoints and remove old ones
@@ -307,6 +224,72 @@ class BNNARHTTrainer(Trainer):
 
                 # Remove previous checkpoints
                 self.checkpoint_manager.remove_old_version()
+
+    def compute_normal_posterior(self, data):
+
+        # Develop
+
+        data = data.to(self.device)
+
+        # Monte Carlo samples from different dropout mask at test time
+        with torch.no_grad():
+            scores = [self.model(data, get_emb=True) for _ in range(self.n_noraml_samples)]
+            scores = torch.cat(scores)
+
+        n_1 = scores.shape[0]
+        s = scores.mean(0)
+        diffs = scores - scores.mean(0)
+        cov = torch.matmul(diffs.T, diffs)
+
+        return s, cov, n_1
+
+    def tune_lambda(self, tester, lambdas, priors):
+        q_values = [tester.Q_function(lamb, priors) for lamb in lambdas]
+        indx = np.argmax(q_values)
+        return lambdas[indx]
+
+    def get_embs(self, data):
+        data = data.to(self.device)
+
+        # Compute embeddings
+        with torch.no_grad():
+            scores = [self.model(data, get_emb=True) for _ in range(self.n_test_samples)]
+            scores = torch.stack(scores)
+
+        return scores
+
+    def compute_p_values(self, mean_normal, cov_normal, n_1, embs):
+        """
+        Compute the ARHT test statistics and p value
+        """
+
+        # Bring data to numpy
+        scores = embs.detach().cpu().numpy()
+        mean_normal = mean_normal.detach().cpu().numpy() / n_1
+        cov_normal = cov_normal.detach().cpu().numpy()
+
+        # Compute mean and variance of testing embeddings
+        test_mu = scores.mean(0)
+        test_cov = np.einsum("ikj, ikl -> kjl", (scores - test_mu), (scores - test_mu))
+
+        lamb = self.config_train["init_lambda"]
+        # lambdas = [lamb, lamb * 5, lamb * 10, lamb * 50]
+        lambdas = [lamb, lamb * 5, lamb * 10]
+        n_2 = scores.shape[0]
+        n = n_1 + n_2
+        p = cov_normal.shape[0]
+
+        cov = (cov_normal + test_cov) / (n_1 + n_2)
+
+        tester = AdaptableRHT(lambdas, cov, n, p)
+        lamb = tester.find_optimal_Q()
+
+        t_stat = tester.adaptive_rht(lamb, mean_normal, test_mu, n_1, n_2, p)
+        rht = tester.rht(lamb, mean_normal, test_mu, n_1, n_2)
+        # pvalues = min(stats.norm.cdf(t_stat), 1 - stats.norm.cdf(t_stat))
+
+        return t_stat
+        # return t_stat, rht
 
     def get_ood_label_score(self, test_in_score, test_out_score):
         score = np.concatenate([test_in_score, test_out_score])
@@ -324,11 +307,6 @@ class BNNARHTTrainer(Trainer):
         return torch.sum(
             torch.lgamma(alphas) - (alphas - 1) * (torch.digamma(alphas) - torch.digamma(alpha0)),
             dim=1) - torch.lgamma(alpha0)
-
-    def subset_dataset(self, d, subset_ratio):
-        indices = torch.randperm(len(d))
-        d = torch.utils.data.Subset(d, indices[:int(subset_ratio * len(d))])
-        return d
 
     def logging(self, epoch_stats):
         wandb.log(epoch_stats)

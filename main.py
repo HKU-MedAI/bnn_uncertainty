@@ -6,16 +6,19 @@ import yaml
 
 from globals import *
 from trainer import (
-    BNNUncertaintyTrainer,
     BNNARHTCLTrainer,
     BNNARHTTrainer,
     EDLTrainer,
     DPNTrainer,
     DeepEnsemblesTrainer,
+    DeepEnsemblesSimulationTrainer,
     MCDTrainer,
     WhatUncertaintiesTrainer,
+    WhatUncertaintiesSimulationTrainer,
     ARHTMetricsTrainer,
-    ARHTMetricsFreqTrainer
+    ARHTMetricsFreqTrainer,
+    BNNARHTSimulationTrainer,
+    MCDSimulatedTrainer,
 )
 from utils import ordered_yaml
 
@@ -26,7 +29,7 @@ parser.add_argument('-seed', type=int, help='random seed of the run', default=61
 args = parser.parse_args()
 
 opt_path = args.config
-default_config_path = "BLeNet_ARHT_CIFAR10.yml"
+default_config_path = "BResNet_ARHT_ImageNet.yml"
 
 if opt_path == "":
     opt_path = CONFIG_DIR / default_config_path
@@ -50,10 +53,10 @@ def main():
         print(f"Loaded configs from {opt_path}")
 
     if mode == "train":
-        if config["train_type"] == "bnn-uncertainty":
-            trainer = BNNUncertaintyTrainer(config)
-        elif config["train_type"] == "arht-uncertainty":
+        if config["train_type"] == "arht-uncertainty":
             trainer = BNNARHTTrainer(config)
+        elif config["train_type"] == "arht-uncertainty-sim":
+            trainer = BNNARHTSimulationTrainer(config)
         elif config["train_type"] == "arht-cl":
             trainer = BNNARHTCLTrainer(config)
         elif config["train_type"] == "arht-metrics":
@@ -66,10 +69,16 @@ def main():
             trainer = DPNTrainer(config)
         elif config["train_type"] == "ensembles":
             trainer = DeepEnsemblesTrainer(config)
+        elif config["train_type"] == "ensembles-sim":
+            trainer = DeepEnsemblesSimulationTrainer(config)
         elif config["train_type"] == "mcd":
             trainer = MCDTrainer(config)
+        elif config["train_type"] == "mcd-sim":
+            trainer = MCDSimulatedTrainer(config)
         elif config["train_type"] == "what-uncertainties":
             trainer = WhatUncertaintiesTrainer(config)
+        elif config["train_type"] == "what-uncertainties-sim":
+            trainer = WhatUncertaintiesSimulationTrainer(config)
         else:
             raise NotImplementedError(f"Trainer of type {config['train_type']} is not implemented")
         trainer.train()
